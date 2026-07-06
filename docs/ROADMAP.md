@@ -58,13 +58,19 @@ hemat >WEIGHT halte. Teruji: Simpang→CSW jadi 1tf/2halte; Pancoran→Ragunan &
 TAK berubah (rute normal aman). W=0 buruk (transfer-happy), W sweet spot 4–12.
 `// ponytail: WEIGHT knob dunia-nyata; kalibrasi kalau ada rute aneh lain.`
 
-## v1.3? — Beberapa opsi rute (Pareto) — IDE (Reza minta 2026-07-06)
+## v1.2.0 — Perjelas transit + jenis bus — SHIPPED 2026-07-06
+Hasil rute dikelompokkan per-leg (Naik:/Turun: eksplisit), blok transfer menonjol dengan ikon per
+jenis (jalan kaki / transfer resmi / pindah peron), badge jenis bus dari `route_desc` (8 kelas
+layanan GTFS, bukan merek armada), dan halte dilewati bisa dibuka-tutup via `<details>`. Router &
+data tak berubah. Detail: `CHANGELOG.md` [1.2.0].
+
+## v1.4? — Beberapa opsi rute (Pareto) — IDE (Reza minta 2026-07-06)
 1 opsi rute terlalu kaku. Tampilkan 2–3 rute alternatif Pareto-optimal biar user pilih sendiri
 tradeoff-nya, mis: **paling sedikit transfer** / **paling sedikit halte** / **seimbang**. Ini
 sekalian nutup dilema tuning WEIGHT (user yang putuskan, bukan satu angka). Butuh: k-shortest /
 label-Pareto di router + UI daftar pilihan (tab/kartu). Rancang jadi plan sendiri saat digarap.
 
-## v1.2 — Navigasi live (highlight list, NO peta) — DECIDED
+## v1.3 — Navigasi live (highlight list, NO peta) — DECIDED
 
 - `navigator.geolocation.watchPosition` → tiap fix, cari halte terdekat **di jalur rute**,
   highlight halte aktif di daftar. Lewat halte A → titik di A → titik transit → tujuan.

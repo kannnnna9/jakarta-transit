@@ -22,8 +22,18 @@
     ol { list-style:none; padding:0; margin:0; }
     li { padding:.35rem 0; border-bottom:1px solid var(--line); }
     li.hop { color:var(--accent); font-weight:600; }
+    li.start { font-weight:700; }
     li.end { font-weight:700; }
     li.stop { color:var(--muted); padding-left:1.2rem; font-size:.92rem; }
+    .badge { display:inline-block; margin-left:.4rem; font-size:.72rem; font-weight:600;
+             color:var(--muted); background:var(--bg); border:1px solid var(--line);
+             border-radius:6px; padding:.05rem .4rem; vertical-align:middle; }
+    .badge.brt { color:#fff; background:var(--accent); border-color:var(--accent); }
+    li.xfer { color:var(--muted); font-size:.85rem; text-align:center; background:#eef3fb;
+              border:0; border-radius:8px; margin:.35rem 0; padding:.45rem; }
+    details summary { cursor:pointer; color:var(--accent); font-size:.92rem; }
+    ol.mid { margin:.25rem 0 0; }
+    ol.mid li { border:0; padding:.15rem 0 .15rem 1rem; }
     button.ghost { background:var(--card); color:var(--accent); border:1px solid var(--line);
                    font-weight:600; margin-top:.6rem; }
     .hint { display:block; color:var(--muted); font-size:.8rem; margin-top:.4rem; min-height:1.1rem; }
@@ -45,6 +55,7 @@
 
   <script src="router.js"></script>
   <script src="suggest.js"></script>
+  <script src="legs.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

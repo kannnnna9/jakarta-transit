@@ -3,6 +3,24 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.2.0] - 2026-07-06
+
+Perjelas tampilan transit + jenis bus.
+
+### Added
+
+- **Tampilan rute per-leg (per naik-bus):** hasil rute kini dikelompokkan jadi "leg". Tiap leg tampil header trayek + halte "Naik:" dan "Turun:" yang eksplisit — dulu deretan halte datar bikin titik transit tenggelam. Modul baru `web/legs.js` (`pathToLegs`, murni, ada tes `test-legs.js`).
+- **Blok transfer menonjol** antar-leg dengan ikon beda per jenis: 🚶 "Jalan kaki ke <halte>" (xtype w), 🔗 "Pindah di halte terhubung" (transfer resmi, xtype o), ↔️ "Pindah peron di <halte>" (halte sama, xtype s). Sebelumnya jenis transfer cuma label kecil " · transfer resmi" yang gampang kelewat.
+- **Badge jenis bus** di tiap leg dari kelas layanan GTFS (`route_desc`): BRT, Angkutan Umum Integrasi (non-BRT), Mikrotrans, Transjabodetabek, Royaltrans, Rusun, Shuttle, Bus Wisata. BRT diberi warna aksen (tulang punggung). Catatan jujur: data TIDAK bisa bedakan merek armada Minitrans vs Metrotrans (itu bukan di GTFS), jadi yang ditampilkan adalah 8 kelas layanan, bukan merek bus.
+- **Halte yang dilewati bisa dibuka-tutup** via native `<details>` ("N halte dilewati") — default ringkas, klik untuk lihat detail. Nol JavaScript tambahan.
+
+### Notes
+
+- Router (`route.py` + `web/router.js`) dan data TIDAK diubah — murni perubahan render (`web/app.js`) + CSS (`web/index.html`). Semua tes lama tetap hijau (test-router, test-suggest, route.py selftest).
+- SW cache di-bump `jt-v4` (app-shell berubah: `legs.js` baru + `app.js`/`index.html`).
+
+[1.2.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.2.0
+
 ## [1.1.1] - 2026-07-06
 
 Perbaiki rute muter absurd (model biaya weighted).
