@@ -2,8 +2,23 @@
 // DOM/render. Router murni ada di Router (router.js). File ini TIDAK berisi logika rute.
 (function () {
   const { buildIndex, findRoute } = window.Router;
+  const { suggest } = window.Suggest;
   const $ = (id) => document.getElementById(id);
   let data = null, index = null, validNames = null;
+  let here = null; // {lat,lon} once user shares location
+
+  // Rebuild the datalist: deduped names, alphabetical or (with `here`) nearest-first.
+  function fillDatalist() {
+    const dl = $("haltes"); dl.innerHTML = "";
+    const coords = { lat: data.lat, lon: data.lon };
+    const frag = document.createDocumentFragment();
+    for (const it of suggest(data.stops, coords, "", 9999, here)) {
+      const o = document.createElement("option");
+      o.value = it.name;
+      frag.appendChild(o);
+    }
+    dl.appendChild(frag);
+  }
 
   fetch("data.json")
     .then((r) => r.json())
@@ -11,17 +26,28 @@
       data = d;
       index = buildIndex(d);
       validNames = new Set(d.stops);
-      // datalist unik (banyak halte punya nama sama utk peron; tampilkan sekali)
-      const dl = $("haltes");
-      const frag = document.createDocumentFragment();
-      for (const nm of [...validNames].sort((a, b) => a.localeCompare(b, "id"))) {
-        const o = document.createElement("option");
-        o.value = nm;
-        frag.appendChild(o);
-      }
-      dl.appendChild(frag);
+      fillDatalist();
     })
     .catch(() => { $("err").textContent = "Gagal memuat data halte."; });
+
+  $("geo").addEventListener("click", () => {
+    if (!data) { $("geostat").textContent = "Data belum siap, tunggu sebentar."; return; }
+    if (!navigator.geolocation) { $("geostat").textContent = "GPS tak didukung peramban ini."; return; }
+    $("geostat").textContent = "Mencari lokasi…";
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        here = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        fillDatalist();
+        $("geostat").textContent = "Saran halte diurut dari lokasi Anda (terdekat di atas).";
+      },
+      (err) => {
+        $("geostat").textContent = err.code === 1
+          ? "Izin lokasi ditolak — aktifkan untuk mengurutkan halte terdekat."
+          : "Gagal ambil lokasi (sinyal GPS lemah?). Coba lagi.";
+      },
+      { timeout: 10000, maximumAge: 60000 }
+    );
+  });
 
   function render(res) {
     const ol = $("result"); ol.innerHTML = "";

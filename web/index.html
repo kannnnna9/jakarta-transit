@@ -24,6 +24,9 @@
     li.hop { color:var(--accent); font-weight:600; }
     li.end { font-weight:700; }
     li.stop { color:var(--muted); padding-left:1.2rem; font-size:.92rem; }
+    button.ghost { background:var(--card); color:var(--accent); border:1px solid var(--line);
+                   font-weight:600; margin-top:.6rem; }
+    .hint { display:block; color:var(--muted); font-size:.8rem; margin-top:.4rem; min-height:1.1rem; }
   </style>
 </head>
 <body>
@@ -33,12 +36,15 @@
   <label for="to">Turun di halte</label>
   <input id="to" list="haltes" autocomplete="off" placeholder="cari halte…" />
   <datalist id="haltes"></datalist>
+  <button id="geo" class="ghost" type="button">📍 Urutkan halte dari lokasi saya</button>
+  <small class="hint" id="geostat"></small>
   <button id="go">Cari rute</button>
   <div class="err" id="err"></div>
   <div class="summary" id="summary"></div>
   <ol id="result"></ol>
 
   <script src="router.js"></script>
+  <script src="suggest.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
