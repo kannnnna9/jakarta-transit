@@ -34,7 +34,40 @@ def main():
     # 3. halte acuan ada
     assert "Pancoran Arah Barat" in data["stops"], "Pancoran Arah Barat hilang"
 
-    print("test_build ok:", len(data["stops"]), "stops,", len(data["routes"]), "routes")
+    # 4. lat/lon parallel to stops, plausible Jakarta bounds
+    assert len(data["lat"]) == len(data["stops"]), (len(data["lat"]), len(data["stops"]))
+    assert len(data["lon"]) == len(data["stops"]), (len(data["lon"]), len(data["stops"]))
+    lats = [v for v in data["lat"] if v is not None]
+    lons = [v for v in data["lon"] if v is not None]
+    assert lats and all(-7.5 < v < -5.5 for v in lats), "lat out of Jakarta range"
+    assert lons and all(106.0 < v < 107.5 for v in lons), "lon out of Jakarta range"
+
+    # 5. rtype parallel to routes, non-empty strings
+    assert len(data["rtype"]) == len(data["routes"]), (len(data["rtype"]), len(data["routes"]))
+    assert any(v for v in data["rtype"]), "all rtype empty"
+
+    # 6. xfer: keys & neighbor indices in range, types valid, symmetric, self-excluded
+    ns = len(data["stops"])
+    xfer = data["xfer"]
+    seen_pair = set()
+    types = set()
+    for si, links in xfer.items():
+        assert 0 <= int(si) < ns, si
+        for nb, ty, dist in links:
+            assert 0 <= nb < ns, nb
+            assert nb != int(si), ("self-transfer", si)
+            assert ty in ("s", "o", "w"), ty
+            assert isinstance(dist, int) and dist >= 0, dist
+            types.add(ty)
+            seen_pair.add((int(si), nb))
+    # official transfers.txt present as "o" both directions
+    assert "o" in types, "no official transfers emitted"
+    # symmetry: every (a,b) has (b,a)
+    for a, b in seen_pair:
+        assert (b, a) in seen_pair, ("asymmetric", a, b)
+
+    print("test_build ok:", len(data["stops"]), "stops,", len(data["routes"]), "routes,",
+          len(xfer), "xfer-nodes")
 
 
 if __name__ == "__main__":
