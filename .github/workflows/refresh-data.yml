@@ -1,0 +1,37 @@
+name: Refresh GTFS data
+
+# Auto-refresh data.json mingguan dari Transitland. Commit HANYA kalau feed berubah.
+# Butuh secret TRANSITLAND_API_KEY. Push data baru memicu pages.yml (redeploy).
+on:
+  schedule:
+    - cron: "17 3 * * 1" # Senin 03:17 UTC = 10:17 WIB (hindari :00 yg antre di GH)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Fetch GTFS + rebuild data.json
+        env:
+          TRANSITLAND_API_KEY: ${{ secrets.TRANSITLAND_API_KEY }}
+        run: |
+          bash gtfs-fetch.sh f-transjakarta~id
+          python3 build-data.py
+      - name: Commit if data changed
+        run: |
+          if git diff --quiet -- web/data.json; then
+            echo "No data change — skip commit."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add web/data.json
+            git commit -m "chore(data): weekly GTFS refresh"
+            git push
+          fi
