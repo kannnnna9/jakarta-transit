@@ -60,7 +60,11 @@
       if (step.kind === "board") { li.textContent = "🚩 " + name; }
       else if (step.kind === "take") {
         li.className = "hop";
-        li.textContent = "🚌 " + data.routes[step.route];
+        // ponytail: route_desc taxonomy is messy — anything not BRT/Koridor = non-BRT, show raw desc.
+        const rt = (data.rtype && data.rtype[step.route]) || "";
+        const nonBrt = rt && !/BRT|Koridor/i.test(rt) ? " · " + rt : "";
+        const xtag = { o: " · transfer resmi", w: " · jalan kaki" }[step.xtype] || "";
+        li.textContent = "🚌 " + data.routes[step.route] + nonBrt + xtag;
         ol.appendChild(li);
         const sub = document.createElement("li");
         sub.className = "stop"; sub.textContent = name;
