@@ -70,7 +70,7 @@
     const heap = new MinHeap(); let seq = 0;
     for (const s of origins)
       heap.push({ tr: 0, st: 0, seq: seq++, stop: s, route: null,
-                  path: [{ kind: "board", stop: s, route: null }] });
+                  path: [{ kind: "board", stop: s, route: null, xtype: null }] });
 
     const best = new Map(); // `${stop},${route}` -> tr*1e7+st (skalar lexicographic)
     while (heap.size) {
@@ -88,15 +88,20 @@
         if (nexts) for (const nx of nexts)
           heap.push({ tr: cur.tr, st: cur.st + 1, seq: seq++, stop: nx,
                       route: cur.route,
-                      path: cur.path.concat([{ kind: "ride", stop: nx, route: cur.route }]) });
+                      path: cur.path.concat([{ kind: "ride", stop: nx, route: cur.route, xtype: null }]) });
       }
-      // board/transfer: route lain di halte NAMA SAMA PERSIS (transfer +1, kecuali board pertama)
-      for (const s2 of nameStops.get(stopName[cur.stop])) {
+      // board/transfer: halte NAMA SAMA (type "s") + link xfer bertipe (o/w/s).
+      // Cost +1 per transfer apa pun jenisnya; jenis cuma label (mirror route.py).
+      const targets = [];
+      for (const s2 of nameStops.get(stopName[cur.stop])) targets.push([s2, "s"]);
+      const xl = data.xfer && data.xfer[cur.stop];
+      if (xl) for (const link of xl) targets.push([link[0], link[1]]);
+      for (const [s2, xtype] of targets) {
         for (const r2 of routesAt[s2]) {
           if (r2 === cur.route) continue;
           const ntr = cur.route === null ? cur.tr : cur.tr + 1;
-          heap.push({ tr: ntr, st: cur.st, seq: seq++, stop: s2, route: r2,
-                      path: cur.path.concat([{ kind: "take", stop: s2, route: r2 }]) });
+          heap.push({ tr: ntr, st: cur.st, seq: seq++, stop: s2, route: r2, xtype,
+                      path: cur.path.concat([{ kind: "take", stop: s2, route: r2, xtype }]) });
         }
       }
     }
