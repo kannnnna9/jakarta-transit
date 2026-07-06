@@ -23,6 +23,7 @@ GTFS = os.environ.get(
 )
 
 WALK_M = 150  # keep in sync with build-data.py WALK_M
+WEIGHT = 8    # biaya 1 transfer = WEIGHT halte; transfer dipilih hanya kalau hemat >WEIGHT halte
 
 
 def _num(s):
@@ -160,38 +161,43 @@ def find(origin, dest, data):
     if not dests:
         sys.exit(f"no stop matches dest '{dest}'")
 
-    # State = (stop, route). Cost = (transfers, stops). Board = route None.
-    # heap: (transfers, stops, tiebreak, stop, route, path) -- tiebreak keeps
-    # heapq from ever comparing route (may be None) or path.
+    # State = (stop, route). Cost = transfers*WEIGHT + stops (weighted, bukan
+    # lexicographic): transfer punya "harga" WEIGHT halte, jadi rute 0-transfer
+    # yang muter kalah dari 1-transfer yang pendek. Board = route None.
+    # heap: (cost, tiebreak, stop, route, transfers, stops, path) -- tiebreak
+    # (seq) mencegah heapq membandingkan route (bisa None) atau path.
     seq = count()
-    pq = [(0, 0, next(seq), s, None, [("board", s, None, None)]) for s in origins]
+    pq = [(0, next(seq), s, None, 0, 0, [("board", s, None, None)]) for s in origins]
     heapq.heapify(pq)
-    best = {}  # (stop, route) -> (transfers, stops)
+    best = {}  # (stop, route) -> cost
     while pq:
-        tr, st, _, stop, route, path = heapq.heappop(pq)
+        cost, _, stop, route, tr, st, path = heapq.heappop(pq)
         if stop in dests:
             return tr, st, path
         key = (stop, route)
-        if key in best and best[key] <= (tr, st):
+        if key in best and best[key] <= cost:
             continue
-        best[key] = (tr, st)
-        # ride one stop forward on current route
+        best[key] = cost
+        # ride one stop forward on current route (transfer +0, stop +1).
+        # sorted(): Python set iteration is hash-randomized; sort for stable
+        # run-to-run output on equal-cost ties (weighted cost makes ties reachable).
         if route is not None:
-            for nxt in ride[route].get(stop, ()):
-                heapq.heappush(pq, (tr, st + 1, next(seq), nxt, route,
-                                    path + [("ride", nxt, route, None)]))
+            for nxt in sorted(ride[route].get(stop, ())):
+                nst = st + 1
+                heapq.heappush(pq, (tr * WEIGHT + nst, next(seq), nxt, route,
+                                    tr, nst, path + [("ride", nxt, route, None)]))
         # board / transfer: same-name stops (type "s") + typed xfer links.
-        # Cost is +1 per transfer regardless of type; type is a label only.
+        # Cost +WEIGHT per transfer regardless of type; type is a label only.
         targets = [(s2, "s") for s2 in name_stops[stop_name[stop]]]
         for nb, ty, _dist in xfer.get(stop, ()):
             targets.append((nb, ty))
         for s2, xtype in targets:
-            for r2 in routes_at[s2]:
+            for r2 in sorted(routes_at[s2]):   # sorted: stable order (see above)
                 if r2 == route:
                     continue
                 ntr = tr if route is None else tr + 1
-                heapq.heappush(pq, (ntr, st, next(seq), s2, r2,
-                                    path + [("take", s2, r2, xtype)]))
+                heapq.heappush(pq, (ntr * WEIGHT + st, next(seq), s2, r2,
+                                    ntr, st, path + [("take", s2, r2, xtype)]))
     return None
 
 
@@ -261,3 +267,30 @@ def _selftest():
     takes = [(k, ty) for (k, s, r, ty) in path if k == "take"]
     assert takes and takes[-1][1] == "w", ("walk type missing", takes)
     print("xfer selftest ok")
+
+    # weighted: long 0-transfer ride (13 halte) must lose to short 1-transfer (2 halte).
+    sn3 = {"a": "A", "c": "C", "b": "B", "b2": "B"}
+    ns3 = defaultdict(list)
+    for s, n in list(sn3.items()):
+        ns3[n].append(s)
+    ride3 = defaultdict(lambda: defaultdict(set))
+    prev = "a"
+    for i in range(12):                       # R1: a -> x0..x11 -> c  (13 rides)
+        nid = "x%d" % i
+        sn3[nid] = "X%d" % i
+        ns3[sn3[nid]].append(nid)
+        ride3["R1"][prev].add(nid)
+        prev = nid
+    ride3["R1"][prev].add("c")
+    ride3["R2"]["a"].add("b")                 # R2: a -> b
+    ride3["R3"]["b2"].add("c")                # R3: b2 -> c   (b2 same name "B")
+    ra3 = defaultdict(set)
+    for r, adj in ride3.items():
+        for u, vs in adj.items():
+            ra3[u].add(r)
+            for v in vs:
+                ra3[v].add(r)
+    data3 = (sn3, ns3, {"R1": "R1", "R2": "R2", "R3": "R3"}, ride3, ra3, {})
+    tr, st, _ = find("A", "C", data3)
+    assert (tr, st) == (1, 2), ("weighted should prefer 1 transfer / 2 stops", tr, st)
+    print("weighted selftest ok")

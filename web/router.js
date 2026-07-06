@@ -3,14 +3,17 @@
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.Router = factory();
 })(typeof self !== "undefined" ? self : this, function () {
-  // Min-heap urut (transfers, stops, seq). seq = counter unik biar heapq
-  // tak pernah banding field non-comparable (mirror tiebreak route.py).
+  // biaya 1 transfer = WEIGHT halte (mirror route.py WEIGHT). Transfer dipilih
+  // hanya kalau hemat >WEIGHT halte -> hindari rute 0-transfer yang muter.
+  const WEIGHT = 8;
+
+  // Min-heap urut (cost, seq). cost = transfers*WEIGHT + stops. seq = counter
+  // unik biar heapq tak pernah banding field non-comparable (tiebreak route.py).
   class MinHeap {
     constructor() { this.a = []; }
     get size() { return this.a.length; }
     _less(x, y) {
-      if (x.tr !== y.tr) return x.tr < y.tr;
-      if (x.st !== y.st) return x.st < y.st;
+      if (x.cost !== y.cost) return x.cost < y.cost;
       return x.seq < y.seq;
     }
     push(x) {
@@ -69,29 +72,30 @@
     const edges = data.edges, stopName = data.stops;
     const heap = new MinHeap(); let seq = 0;
     for (const s of origins)
-      heap.push({ tr: 0, st: 0, seq: seq++, stop: s, route: null,
+      heap.push({ cost: 0, tr: 0, st: 0, seq: seq++, stop: s, route: null,
                   path: [{ kind: "board", stop: s, route: null, xtype: null }] });
 
-    const best = new Map(); // `${stop},${route}` -> tr*1e7+st (skalar lexicographic)
+    const best = new Map(); // `${stop},${route}` -> cost (tr*WEIGHT+st)
     while (heap.size) {
       const cur = heap.pop();
       if (dests.has(cur.stop))
         return { transfers: cur.tr, stops: cur.st, path: cur.path };
       const key = cur.stop + "," + cur.route;
-      const cost = cur.tr * 1e7 + cur.st;
-      if (best.has(key) && best.get(key) <= cost) continue;
-      best.set(key, cost);
+      if (best.has(key) && best.get(key) <= cur.cost) continue;
+      best.set(key, cur.cost);
 
       // ride: maju 1 stop di route sama (transfer +0, stop +1)
       if (cur.route !== null) {
         const nexts = edges[cur.route] && edges[cur.route][cur.stop];
-        if (nexts) for (const nx of nexts)
-          heap.push({ tr: cur.tr, st: cur.st + 1, seq: seq++, stop: nx,
-                      route: cur.route,
+        if (nexts) for (const nx of nexts) {
+          const nst = cur.st + 1;
+          heap.push({ cost: cur.tr * WEIGHT + nst, tr: cur.tr, st: nst, seq: seq++,
+                      stop: nx, route: cur.route,
                       path: cur.path.concat([{ kind: "ride", stop: nx, route: cur.route, xtype: null }]) });
+        }
       }
       // board/transfer: halte NAMA SAMA (type "s") + link xfer bertipe (o/w/s).
-      // Cost +1 per transfer apa pun jenisnya; jenis cuma label (mirror route.py).
+      // Cost +WEIGHT per transfer apa pun jenisnya; jenis cuma label (mirror route.py).
       const targets = [];
       for (const s2 of nameStops.get(stopName[cur.stop])) targets.push([s2, "s"]);
       const xl = data.xfer && data.xfer[cur.stop];
@@ -100,7 +104,8 @@
         for (const r2 of routesAt[s2]) {
           if (r2 === cur.route) continue;
           const ntr = cur.route === null ? cur.tr : cur.tr + 1;
-          heap.push({ tr: ntr, st: cur.st, seq: seq++, stop: s2, route: r2, xtype,
+          heap.push({ cost: ntr * WEIGHT + cur.st, tr: ntr, st: cur.st, seq: seq++,
+                      stop: s2, route: r2, xtype,
                       path: cur.path.concat([{ kind: "take", stop: s2, route: r2, xtype }]) });
         }
       }

@@ -3,6 +3,24 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.1.1] - 2026-07-06
+
+Perbaiki rute muter absurd (model biaya weighted).
+
+### Fixed
+
+- **Rute muter dihindari:** model biaya router diganti dari lexicographic (minim-transfer DULU) jadi **weighted** `transfer × 8 + halte`. Sebelumnya rute 0-transfer yang muter (mis. Simpang Kuningan → CSW 1 = 0 transfer tapi **16 halte muter** lewat Flyover Kuningan pada trayek loop L13E) menang atas rute 1-transfer/2-halte yang jauh lebih waras. Sekarang transfer "berharga" ~8 halte, jadi rute pendek-tapi-transfer dipilih. `route.py` + `web/router.js` disamakan (paritas oracle).
+- **route.py deterministik:** iterasi `set` diurutkan supaya output CLI stabil antar-run (weighted bikin kasus seri lebih sering).
+
+### Notes
+
+- Rute normal tak berubah — teruji: Pancoran Arah Barat → Komplek Polri Ragunan tetap 0 transfer/18 halte/koridor 5N; Cikoko → Blok M tetap 1 transfer/7 halte. Cuma kasus rute-muter yang diperbaiki.
+- `WEIGHT = 8` adalah tuning knob (sweet spot 4–12; W=0 buruk/transfer-happy). Kalibrasi bila ada rute aneh lain.
+- SW cache `jt-v3` (app-shell `router.js` berubah).
+- Roadmap baru: **beberapa opsi rute (Pareto)** biar user pilih tradeoff sendiri (`docs/ROADMAP.md`).
+
+[1.1.1]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.1.1
+
 ## [1.1.0] - 2026-07-06
 
 Halte terdekat via GPS, pencarian substring, dan transfer bertipe (stasiun-sama / resmi / jalan kaki).

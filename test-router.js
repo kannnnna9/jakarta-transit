@@ -31,6 +31,14 @@ if (fs.existsSync(dataPath)) {
   );
   console.log("parity ok:", res.transfers, "transfer,", res.stops, "stop, koridor",
     data.routes[boarded.route]);
+
+  // weighted cost: rute muter L13E (0 transfer / 16 halte) HARUS kalah dari
+  // opsi pendek (1 transfer / ~2 halte). Guard regresi bug rute-muter.
+  const rw = findRoute(data, "Simpang Kuningan", "CSW 1", idx);
+  assert.ok(rw && rw.stops <= 6,
+    "Simpang Kuningan->CSW 1 harus rute pendek (weighted), dapat " +
+    (rw ? rw.transfers + "tf/" + rw.stops + "halte" : "null"));
+  console.log("weighted ok:", rw.transfers, "transfer,", rw.stops, "stop");
 } else {
   console.log("(skip parity — web/data.json belum ada, jalankan build-data.py)");
 }
