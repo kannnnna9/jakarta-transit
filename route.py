@@ -12,7 +12,7 @@ Matching: origin/dest are case-insensitive substrings of stop_name; every
 matching stop is a candidate board/alight point. Transfers only happen
 between stops that share the EXACT same name (same physical halte).
 """
-import csv, heapq, os, sys
+import csv, heapq, math, os, sys
 from collections import defaultdict
 from itertools import count
 
@@ -22,6 +22,24 @@ GTFS = os.environ.get(
     os.path.join(HERE, "data/f-transjakarta~id/extracted"),
 )
 
+WALK_M = 150  # keep in sync with build-data.py WALK_M
+
+
+def _num(s):
+    s = (s or "").strip()
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def _haversine_m(lat1, lon1, lat2, lon2):
+    R = 6371000.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp, dl = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(a))
+
 
 def load():
     def rows(name):
@@ -30,10 +48,16 @@ def load():
 
     stop_name = {}          # stop_id -> name
     name_stops = defaultdict(list)   # name -> [stop_id]
+    stop_lat, stop_lon, stop_parent = {}, {}, {}
     for r in rows("stops.txt"):
         sid, nm = r["stop_id"], r["stop_name"].strip()
         stop_name[sid] = nm
         name_stops[nm].append(sid)
+        stop_lat[sid] = _num(r.get("stop_lat"))
+        stop_lon[sid] = _num(r.get("stop_lon"))
+        stop_parent[sid] = (r.get("parent_station") or "").strip()
+
+    xfer = _build_xfer(rows, stop_lat, stop_lon, stop_parent)
 
     trip_route = {r["trip_id"]: r["route_id"] for r in rows("trips.txt")}
 
@@ -59,7 +83,70 @@ def load():
             ride[route][a].add(b)
             routes_at[a].add(route)
             routes_at[b].add(route)
-    return stop_name, name_stops, rname, ride, routes_at
+    return stop_name, name_stops, rname, ride, routes_at, xfer
+
+
+def _build_xfer(rows, stop_lat, stop_lon, stop_parent):
+    """Extra (non-same-name) transfer links keyed by stop_id.
+    MUST mirror build-data.py build_xfer semantics so route.py stays a true
+    oracle for web/router.js. Priority s > o > w; directed + symmetric."""
+    prio = {"s": 3, "o": 2, "w": 1}
+    pairs = {}
+
+    def add(a, b, ty, dist):
+        if a == b:
+            return
+        for x, y in ((a, b), (b, a)):
+            old = pairs.get((x, y))
+            if old is None or prio[ty] > prio[old[0]]:
+                pairs[(x, y)] = (ty, dist)
+
+    # 1. shared parent_station -> "s"
+    parent_group = defaultdict(list)
+    for sid, par in stop_parent.items():
+        if par:
+            parent_group[par].append(sid)
+    for members in parent_group.values():
+        for i in range(len(members)):
+            for j in range(i + 1, len(members)):
+                add(members[i], members[j], "s", 0)
+
+    # 2. official transfers.txt -> "o" (skip type 3 = not possible)
+    try:
+        for r in rows("transfers.txt"):
+            if (r.get("transfer_type") or "0").strip() == "3":
+                continue
+            a, b = r.get("from_stop_id"), r.get("to_stop_id")
+            if a in stop_lat and b in stop_lat:
+                add(a, b, "o", 0)
+    except FileNotFoundError:
+        pass
+
+    # 3. proximity walk < WALK_M -> "w" (grid bucket; cell > threshold)
+    CELL = (WALK_M * 1.1) / 111_320
+    grid = defaultdict(list)
+    for sid in stop_lat:
+        la, lo = stop_lat[sid], stop_lon[sid]
+        if la is None or lo is None:
+            continue
+        grid[(round(la / CELL), round(lo / CELL))].append(sid)
+    for (cy, cx), bucket in grid.items():
+        cand = []
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                cand += grid.get((cy + dy, cx + dx), [])
+        for a in bucket:
+            for b in cand:
+                if b <= a:  # stop_ids are strings; stable dedup of each pair
+                    continue
+                dm = _haversine_m(stop_lat[a], stop_lon[a], stop_lat[b], stop_lon[b])
+                if dm < WALK_M:
+                    add(a, b, "w", int(round(dm)))
+
+    out = defaultdict(list)
+    for (a, b), (ty, dist) in pairs.items():
+        out[a].append((b, ty, dist))
+    return dict(out)
 
 
 def find(origin, dest, data):
