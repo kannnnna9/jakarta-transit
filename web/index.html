@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b6bcb" />
+  <title>Jakarta Transit</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    :root { --bg:#f6f7f9; --card:#fff; --accent:#0b6bcb; --line:#e3e6ea; --muted:#667; }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; background:var(--bg); color:#111;
+           padding:16px; max-width:640px; margin-inline:auto; }
+    h1 { font-size:1.25rem; margin:.2rem 0 1rem; }
+    label { display:block; font-size:.85rem; color:var(--muted); margin:.6rem 0 .2rem; }
+    input, button { width:100%; padding:.7rem .8rem; font-size:1rem; border-radius:10px;
+                    border:1px solid var(--line); background:var(--card); }
+    button { margin-top:1rem; background:var(--accent); color:#fff; border:0; font-weight:600; }
+    button:active { opacity:.85; }
+    .err { color:#b00020; font-size:.9rem; margin-top:.6rem; min-height:1.2rem; }
+    .summary { font-weight:700; margin:1.2rem 0 .4rem; }
+    ol { list-style:none; padding:0; margin:0; }
+    li { padding:.35rem 0; border-bottom:1px solid var(--line); }
+    li.hop { color:var(--accent); font-weight:600; }
+    li.end { font-weight:700; }
+    li.stop { color:var(--muted); padding-left:1.2rem; font-size:.92rem; }
+  </style>
+</head>
+<body>
+  <h1>Jakarta Transit</h1>
+  <label for="from">Naik dari halte</label>
+  <input id="from" list="haltes" autocomplete="off" placeholder="cari halte…" />
+  <label for="to">Turun di halte</label>
+  <input id="to" list="haltes" autocomplete="off" placeholder="cari halte…" />
+  <datalist id="haltes"></datalist>
+  <button id="go">Cari rute</button>
+  <div class="err" id="err"></div>
+  <div class="summary" id="summary"></div>
+  <ol id="result"></ol>
+
+  <script src="router.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
