@@ -66,8 +66,41 @@ def main():
     for a, b in seen_pair:
         assert (b, a) in seen_pair, ("asymmetric", a, b)
 
+    # 7. snum: nomor halte BRT koridor 1-14, terverifikasi vs peta integrasi 2026-06
+    import re
+    snum = data["snum"]
+    ns = len(data["stops"])
+    for si, nums in snum.items():
+        assert 0 <= int(si) < ns, si
+        for n in nums:
+            assert re.fullmatch(r"([1-9]|1[0-4])-\d+", n), n
+    by_name = {}
+    for si, nums in snum.items():
+        by_name.setdefault(data["stops"][int(si)], set()).update(nums)
+    expect = {
+        "Kota": {"1-20", "12-6"},
+        "Widya Chandra Telkomsel Arah Timur": {"9-13"},
+        "Widya Chandra Telkomsel Arah Barat": {"9-13"},
+        "Kejaksaan Agung": {"1-2"},          # peta: gabung ASEAN = 1-2
+        "Kwitang": {"2-24"},
+        "Pancoran Arah Barat": {"9-9"},
+        "Museum Sejarah Jakarta": {"1-22", "12-5"},
+        "Pasar Baru": {"3-16", "8-26"},
+        "Jembatan Merah": {"5-4", "12-10"},
+        "Tegal Mampang": {"13-1"},
+        "CSW 1": {"13-4"},  # halte dipakai trayek 13E, nomor tetap milik stasiun
+        "Jakarta International Stadium": {"14-10"},
+    }
+    for name, want in expect.items():
+        assert by_name.get(name) == want, (name, by_name.get(name), want)
+    # Monas: peta hanya kasih nomor koridor 1 & 2 (bukan 3)
+    assert by_name.get("Monumen Nasional") == {"1-14", "2-21"}, by_name.get("Monumen Nasional")
+    # varian trip malam koridor 1 (via Petojo/Pasar Santa) tak boleh dapat nomor 1-x
+    assert by_name.get("Petojo") == {"3-13", "8-23"}, by_name.get("Petojo")
+    assert by_name.get("Pasar Santa") == {"13-3"}, by_name.get("Pasar Santa")
+
     print("test_build ok:", len(data["stops"]), "stops,", len(data["routes"]), "routes,",
-          len(xfer), "xfer-nodes")
+          len(xfer), "xfer-nodes,", len(snum), "snum-nodes")
 
 
 if __name__ == "__main__":

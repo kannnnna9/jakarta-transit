@@ -3,6 +3,25 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.3.0] - 2026-07-06
+
+Nomor halte BRT sesuai peta integrasi resmi.
+
+### Added
+
+- **Nomor halte BRT sesuai peta integrasi resmi** (ed. 2026-06): badge "koridor-urut" (contoh `1-20 Kota`, `9-13 Widya Chandra Telkomsel`) tampil sebelum nama halte di hasil rute (asal, Naik/Turun, halte dilewati, tujuan). Halte bersama lintas koridor dapat multi-nomor (contoh Kota = 1-20 + 12-6). Nomor TIDAK ada di GTFS — diturunkan `build-data.py` dari urutan halte trip terpanjang tiap koridor 1–14 (arah origin resmi peta), halte khusus-arah-balik dapat nomor lanjutan; ±45 label diverifikasi manual terhadap `integrasi.jpg` + tabel `SNUM_OVERRIDE` kecil untuk beda GTFS vs peta (gabungan "ASEAN Kejaksaan Agung" 1-2, area Kota koridor 1, leg balik koridor 2, ujung koridor 3 Pasar Baru). Field baru `snum` di data.json (799 halte). Catatan jujur: nomor halte yang tak terverifikasi manual bisa geser ±1 kalau GTFS beda dgn peta cetak.
+- Warning build kalau origin koridor hilang di GTFS masa depan (deteksi drift).
+
+### Changed
+
+- SW cache di-bump `jt-v5`.
+
+### Test
+
+- `test_build.py` section 7 (11 stasiun acuan + guard varian malam koridor 1 Petojo/Pasar Santa), semua tes lama tetap hijau.
+
+[1.3.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.3.0
+
 ## [1.2.0] - 2026-07-06
 
 Perjelas tampilan transit + jenis bus.

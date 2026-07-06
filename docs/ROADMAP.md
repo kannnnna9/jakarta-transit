@@ -64,13 +64,18 @@ jenis (jalan kaki / transfer resmi / pindah peron), badge jenis bus dari `route_
 layanan GTFS, bukan merek armada), dan halte dilewati bisa dibuka-tutup via `<details>`. Router &
 data tak berubah. Detail: `CHANGELOG.md` [1.2.0].
 
-## v1.4? — Beberapa opsi rute (Pareto) — IDE (Reza minta 2026-07-06)
+## v1.3.0 — Nomor halte BRT sesuai peta integrasi resmi — SHIPPED 2026-07-06
+Badge "koridor-urut" (mis. `1-20 Kota`) di depan nama halte tiap muncul di hasil rute, diturunkan
+`build-data.py` dari urutan halte per koridor + verifikasi manual vs peta cetak (`SNUM_OVERRIDE`
+buat beda GTFS/peta). Router & UI tak diubah. Detail: `CHANGELOG.md` [1.3.0].
+
+## v1.5? — Beberapa opsi rute (Pareto) — IDE (Reza minta 2026-07-06)
 1 opsi rute terlalu kaku. Tampilkan 2–3 rute alternatif Pareto-optimal biar user pilih sendiri
 tradeoff-nya, mis: **paling sedikit transfer** / **paling sedikit halte** / **seimbang**. Ini
 sekalian nutup dilema tuning WEIGHT (user yang putuskan, bukan satu angka). Butuh: k-shortest /
 label-Pareto di router + UI daftar pilihan (tab/kartu). Rancang jadi plan sendiri saat digarap.
 
-## v1.3 — Navigasi live (highlight list, NO peta) — DECIDED
+## v1.4 — Navigasi live (highlight list, NO peta) — DECIDED
 
 - `navigator.geolocation.watchPosition` → tiap fix, cari halte terdekat **di jalur rute**,
   highlight halte aktif di daftar. Lewat halte A → titik di A → titik transit → tujuan.

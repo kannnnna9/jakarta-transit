@@ -58,6 +58,20 @@
     return e;
   };
 
+  // Baris halte dgn badge nomor BRT (peta integrasi) sebelum nama, contoh "1-20 Kota".
+  function stopLi(cls, prefix, idx) {
+    const e = li(cls, prefix);
+    for (const n of (data.snum && data.snum[idx]) || []) {
+      const b = document.createElement("span");
+      b.className = "badge snum";
+      b.textContent = n;
+      e.appendChild(b);
+      e.appendChild(document.createTextNode(" "));
+    }
+    e.appendChild(document.createTextNode(nm(idx)));
+    return e;
+  }
+
   // Blok transfer antar-leg. Ikon beda per jenis biar tak rancu:
   // 🚶 jalan kaki (w) · 🔗 halte terhubung/transfer resmi (o) · ↔️ pindah peron (s).
   function transferBlock(prev, leg) {
@@ -92,7 +106,7 @@
     det.appendChild(sum);
     const inner = document.createElement("ol");
     inner.className = "mid";
-    for (const s of mid) inner.appendChild(li("stop", nm(s)));
+    for (const s of mid) inner.appendChild(stopLi("stop", "", s));
     det.appendChild(inner);
     wrap.appendChild(det);
     return wrap;
@@ -105,15 +119,15 @@
     const legs = pathToLegs(res.path);
     if (!legs.length) { $("summary").textContent = "Rute tidak ditemukan."; return; }
 
-    ol.appendChild(li("start", "🚩 " + nm(legs[0].board)));
+    ol.appendChild(stopLi("start", "🚩 ", legs[0].board));
     legs.forEach((leg, i) => {
       if (i > 0) ol.appendChild(transferBlock(legs[i - 1], leg));
       ol.appendChild(legHeader(leg));
-      ol.appendChild(li("stop", "Naik: " + nm(leg.board)));
+      ol.appendChild(stopLi("stop", "Naik: ", leg.board));
       if (leg.mid.length) ol.appendChild(midDetails(leg.mid));
-      ol.appendChild(li("stop", "Turun: " + nm(leg.alight)));
+      ol.appendChild(stopLi("stop", "Turun: ", leg.alight));
     });
-    ol.appendChild(li("end", "🏁 Sampai: " + nm(legs[legs.length - 1].alight)));
+    ol.appendChild(stopLi("end", "🏁 Sampai: ", legs[legs.length - 1].alight));
   }
 
   $("go").addEventListener("click", () => {

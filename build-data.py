@@ -6,7 +6,7 @@ Struktur output:
   routes: ["short (long)", ...]             # index -> label koridor
   edges:  {"routeIdx": {"stopIdx": [nextStopIdx, ...]}}  # adjacency berarah
 """
-import csv, json, math, os
+import csv, json, math, os, re
 from collections import defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -36,6 +36,86 @@ def _haversine_m(lat1, lon1, lat2, lon2):
     dl = math.radians(lon2 - lon1)
     a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
     return 2 * R * math.asin(math.sqrt(a))
+
+
+# --- Penomoran halte BRT (peta integrasi Transjakarta ed. 2026-06) ---
+# Nomor "koridor-urut" tidak ada di GTFS; diturunkan dari urutan stop trip
+# terpanjang arah resmi (origin sesuai peta), halte arah-balik dapat nomor
+# lanjutan. Origin & OVERRIDES diverifikasi manual dari peta integrasi.jpg.
+SNUM_ORIGIN = {
+    "1": "Blok M", "2": "Pulo Gadung", "3": "Kalideres", "4": "Pulo Gadung",
+    "5": "Ancol", "6": "Ragunan", "7": "Kampung Rambutan", "8": "Lebak Bulus",
+    "9": "Pinang Ranti", "10": "Tanjung Priok", "11": "Pulo Gebang",
+    "12": "Pluit", "13": "Tegal Mampang", "14": "Senen TOYOTA Rangga",
+}
+# Koreksi yang terbaca di peta tapi beda/absen di GTFS. None = tanpa nomor.
+SNUM_OVERRIDE = {
+    "1": {"Kejaksaan Agung": 2,  # peta: "1-2 ASEAN Kejaksaan Agung"
+          "Kota": 20, "Kali Besar": 21, "Museum Sejarah Jakarta": 22},
+    "2": {"Monumen Nasional": 21, "Balai Kota": 22, "Gambir 2": 23,
+          "Kwitang": 24},  # peta punya halte 2-20 yang tak ada di GTFS
+    "3": {"Pecenongan": 14, "Juanda": 15, "Pasar Baru": 16,
+          "Monumen Nasional": None},  # peta tak beri nomor 3 di Monas
+}
+_ARAH = re.compile(r"\s+Arah\s+(Utara|Selatan|Timur|Barat)$")
+
+
+def _station(name):
+    """Nama stasiun peta: halte 'Arah X' GTFS = satu stasiun, satu nomor."""
+    return _ARAH.sub("", name)
+
+
+def build_snum(trip_route, trip_seq, stop_idx, stop_names):
+    """{stopIdx: ["1-20","12-6",...]} untuk halte platform koridor BRT 1-14."""
+    corr_trips = defaultdict(list)  # rid -> [urutan nama stasiun per trip]
+    for tid, seq in trip_seq.items():
+        rid = trip_route.get(tid)
+        if rid in SNUM_ORIGIN:
+            names = [_station(stop_names[stop_idx[s]]) for _, s in sorted(seq)]
+            corr_trips[rid].append(names)
+
+    def best(trips, key, score):
+        cands = [t for t in trips if t and key(t)]
+        return max(cands, key=score, default=[])
+
+    num_by_corr = {}  # rid -> {station: num|None}
+    for rid, origin in SNUM_ORIGIN.items():
+        trips = corr_trips.get(rid, [])
+        outb = best(trips, lambda t: t[0] == origin and t[-1] != origin,
+                    lambda t: len(set(t)))
+        if not outb:
+            outb = best(trips, lambda t: t[0] == origin, lambda t: len(set(t)))
+        dest = outb[-1] if outb else None
+        # trip balik: overlap terbesar dgn outbound, bukan terpanjang —
+        # varian malam lewat jalan lain ikut terdaftar di route_id koridor
+        ob = set(outb)
+        ret = best(trips, lambda t: t[0] == dest and t[-1] == origin,
+                   lambda t: (len(set(t) & ob), len(set(t))))
+        if trips and not outb:  # drift GTFS vs origin hardcode — jangan diam
+            print(f"warn: koridor {rid} tak punya trip dari origin '{origin}'")
+        nums, n = {}, 0
+        for name in list(outb) + list(ret):
+            if name not in nums:
+                n += 1
+                nums[name] = n
+        nums.update(SNUM_OVERRIDE.get(rid, {}))
+        num_by_corr[rid] = nums
+
+    # label per nama stasiun untuk SEMUA stop senama (halte koridor dipakai juga
+    # trayek non-koridor spt 13E — papan halte fisiknya tetap bernomor);
+    # halte bersama lintas koridor = multi-nomor
+    snum = {}
+    for si in range(len(stop_names)):
+        station = _station(stop_names[si])
+        labels = [
+            f"{rid}-{nums[station]}"
+            for rid, nums in num_by_corr.items()
+            if nums.get(station) is not None
+        ]
+        if labels:
+            labels.sort(key=lambda s: tuple(map(int, s.split("-"))))
+            snum[str(si)] = labels
+    return snum
 
 
 def build_xfer(stop_idx, stop_lat, stop_lon):
@@ -143,9 +223,11 @@ def main():
         for ri, adj in edges.items()
     }
     xfer = build_xfer(stop_idx, stop_lat, stop_lon)
+    snum = build_snum(trip_route, trip_seq, stop_idx, stop_names)
     data = {
         "stops": stop_names, "routes": route_labels, "edges": edges_out,
         "lat": stop_lat, "lon": stop_lon, "rtype": route_types, "xfer": xfer,
+        "snum": snum,
     }
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
