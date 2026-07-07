@@ -31,6 +31,8 @@
     .badge.brt { color:#fff; background:var(--accent); border-color:var(--accent); }
     .badge.snum { margin-left:0; color:var(--accent); background:var(--card);
                   border-color:var(--accent); font-variant-numeric:tabular-nums; }
+    li.here { background:#e6f2ff; border-left:3px solid var(--accent);
+              padding-left:.6rem; color:#111; font-weight:600; }
     li.xfer { color:var(--muted); font-size:.85rem; text-align:center; background:#eef3fb;
               border:0; border-radius:8px; margin:.35rem 0; padding:.45rem; }
     details summary { cursor:pointer; color:var(--accent); font-size:.92rem; }
@@ -53,11 +55,14 @@
   <button id="go">Cari rute</button>
   <div class="err" id="err"></div>
   <div class="summary" id="summary"></div>
+  <button id="nav" class="ghost" type="button" hidden>🧭 Mulai navigasi</button>
+  <small class="hint" id="navstat"></small>
   <ol id="result"></ol>
 
   <script src="router.js"></script>
   <script src="suggest.js"></script>
   <script src="legs.js"></script>
+  <script src="livenav.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

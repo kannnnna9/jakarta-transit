@@ -8,9 +8,9 @@ Pilih halte asal + tujuan (autocomplete nama halte), dapat rute minim-transfer l
 
 ## Status
 
-- **v1.3.0** — SHIPPED + LIVE (lihat [`CHANGELOG.md`](CHANGELOG.md)). GPS + transfer 3-jenis, tampilan per-leg + badge jenis bus, nomor halte BRT sesuai peta integrasi.
+- **v1.4.0** — SHIPPED + LIVE (lihat [`CHANGELOG.md`](CHANGELOG.md)). Navigasi live (highlight halte aktif, snap maju-only, tanpa peta), nomor halte BRT sesuai peta integrasi, tampilan per-leg + badge jenis bus.
 - Sisa: regenerate APK di PWABuilder saat mau (ikon sekarang placeholder "JT").
-- Roadmap berikutnya (v1.4 live-nav, v1.5 multi-rute Pareto): [`docs/ROADMAP.md`](docs/ROADMAP.md).
+- Roadmap berikutnya (v1.5 multi-rute Pareto): [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Struktur
 

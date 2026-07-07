@@ -3,6 +3,30 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.4.0] - 2026-07-07
+
+Navigasi live: highlight halte aktif di daftar rute (tanpa peta).
+
+### Added
+
+- **Navigasi live** (`🧭 Mulai navigasi`, muncul setelah rute tampil): `watchPosition` GPS →
+  tiap fix, posisi di-snap ke halte terdekat **di jalur rute** (radius 50 m, knob `RADIUS_M`),
+  halte aktif di-highlight di daftar + auto-scroll; halte di dalam "N halte dilewati"
+  (`<details>`) otomatis dibuka. Snap **maju-only** — GPS goyang tak memundurkan posisi
+  (modul murni baru `web/livenav.js` `snap()`, reuse `Suggest.haversineM`, ada tes
+  `test-livenav.js`). Status teks `Posisi: <halte> (n/N)`; sampai halte terakhir → navigasi
+  berhenti sendiri dengan "🏁 Sampai". Tanpa peta/tiles — tetap ringan & offline.
+- Tombol toggle `⏹ Berhenti navigasi`; error GPS (izin ditolak / sinyal lemah) ditangani.
+  Cari rute baru otomatis menghentikan navigasi.
+
+### Notes
+
+- Router (`route.py` + `web/router.js`) dan data TIDAK diubah — murni tambahan render/DOM
+  (`app.js`, `index.html` CSS `.here`) + modul murni `livenav.js`. Semua tes lama hijau.
+- SW cache di-bump `jt-v6` (app-shell: + `livenav.js`).
+
+[1.4.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.4.0
+
 ## [1.3.0] - 2026-07-06
 
 Nomor halte BRT sesuai peta integrasi resmi.

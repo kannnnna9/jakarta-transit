@@ -75,12 +75,12 @@ tradeoff-nya, mis: **paling sedikit transfer** / **paling sedikit halte** / **se
 sekalian nutup dilema tuning WEIGHT (user yang putuskan, bukan satu angka). Butuh: k-shortest /
 label-Pareto di router + UI daftar pilihan (tab/kartu). Rancang jadi plan sendiri saat digarap.
 
-## v1.4 — Navigasi live (highlight list, NO peta) — DECIDED
+## v1.4.0 — Navigasi live (highlight list, NO peta) — SHIPPED 2026-07-07
 
-- `navigator.geolocation.watchPosition` → tiap fix, cari halte terdekat **di jalur rute**,
-  highlight halte aktif di daftar. Lewat halte A → titik di A → titik transit → tujuan.
-- Snap **maju-only** (GPS goyang jangan mundur ke halte sebelumnya). Radius ambang ~50 m.
-- Tanpa peta / tanpa tiles — tetap ringan & offline. Peta = fase lebih jauh kalau perlu.
+`watchPosition` → snap maju-only ke halte terdekat di jalur rute (radius 50 m), highlight +
+auto-scroll halte aktif, berhenti sendiri di tujuan. Modul murni `web/livenav.js` + tes.
+Router & data tak diubah. Plan: `docs/superpowers/plans/2026-07-07-jakarta-transit-v1.4-livenav.md`.
+Detail: `CHANGELOG.md` [1.4.0].
 
 `// ponytail: highlight-list dulu; peta cuma kalau list beneran kurang, bukan spekulatif.`
 

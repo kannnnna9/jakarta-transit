@@ -4,9 +4,12 @@
   const { buildIndex, findRoute } = window.Router;
   const { suggest } = window.Suggest;
   const { pathToLegs } = window.Legs;
+  const { snap } = window.LiveNav;
   const $ = (id) => document.getElementById(id);
   let data = null, index = null, validNames = null;
   let here = null; // {lat,lon} once user shares location
+  const RADIUS_M = 50; // ambang "sampai halte" — knob dunia nyata (GPS HP ~10-30 m)
+  let nav = { watchId: null, cur: -1, stops: [] }; // stops: [{idx, el}] urut jalur
 
   // Rebuild the datalist: deduped names, alphabetical or (with `here`) nearest-first.
   function fillDatalist() {
@@ -98,6 +101,7 @@
   }
 
   // Halte yang cuma dilewati: default ringkas, buka via native <details>.
+  // Return els (li per halte, urut mid) buat tracking navigasi live.
   function midDetails(mid) {
     const wrap = li("stop", "");
     const det = document.createElement("details");
@@ -106,29 +110,87 @@
     det.appendChild(sum);
     const inner = document.createElement("ol");
     inner.className = "mid";
-    for (const s of mid) inner.appendChild(stopLi("stop", "", s));
+    const els = mid.map((s) => inner.appendChild(stopLi("stop", "", s)));
     det.appendChild(inner);
     wrap.appendChild(det);
-    return wrap;
+    return { wrap, els };
   }
 
   function render(res) {
+    stopNav();
+    nav.stops = []; $("nav").hidden = true;
     const ol = $("result"); ol.innerHTML = "";
     if (!res) { $("summary").textContent = "Rute tidak ditemukan."; return; }
     $("summary").textContent = `${res.transfers} transfer · ${res.stops} halte`;
     const legs = pathToLegs(res.path);
     if (!legs.length) { $("summary").textContent = "Rute tidak ditemukan."; return; }
 
-    ol.appendChild(stopLi("start", "🚩 ", legs[0].board));
+    // track: urutan halte jalur buat navigasi live (skip duplikat berurutan)
+    const track = (idx, el) => {
+      const last = nav.stops[nav.stops.length - 1];
+      if (!last || last.idx !== idx) nav.stops.push({ idx, el });
+      return el;
+    };
+    ol.appendChild(track(legs[0].board, stopLi("start", "🚩 ", legs[0].board)));
     legs.forEach((leg, i) => {
       if (i > 0) ol.appendChild(transferBlock(legs[i - 1], leg));
       ol.appendChild(legHeader(leg));
-      ol.appendChild(stopLi("stop", "Naik: ", leg.board));
-      if (leg.mid.length) ol.appendChild(midDetails(leg.mid));
-      ol.appendChild(stopLi("stop", "Turun: ", leg.alight));
+      ol.appendChild(track(leg.board, stopLi("stop", "Naik: ", leg.board)));
+      if (leg.mid.length) {
+        const { wrap, els } = midDetails(leg.mid);
+        leg.mid.forEach((s, j) => track(s, els[j]));
+        ol.appendChild(wrap);
+      }
+      ol.appendChild(track(leg.alight, stopLi("stop", "Turun: ", leg.alight)));
     });
-    ol.appendChild(stopLi("end", "🏁 Sampai: ", legs[legs.length - 1].alight));
+    const endEl = stopLi("end", "🏁 Sampai: ", legs[legs.length - 1].alight);
+    ol.appendChild(endEl);
+    nav.stops[nav.stops.length - 1].el = endEl; // highlight tiba di baris "Sampai", bukan "Turun"
+    if (navigator.geolocation) $("nav").hidden = false;
   }
+
+  // --- Navigasi live: watchPosition -> snap maju-only -> highlight halte aktif ---
+  function stopNav() {
+    if (nav.watchId != null) navigator.geolocation.clearWatch(nav.watchId);
+    nav.watchId = null; nav.cur = -1;
+    $("nav").textContent = "🧭 Mulai navigasi";
+    $("navstat").textContent = "";
+  }
+
+  function onFix(pos) {
+    const points = nav.stops.map(({ idx }) => ({ lat: data.lat[idx], lon: data.lon[idx] }));
+    const j = snap(points, { lat: pos.coords.latitude, lon: pos.coords.longitude }, nav.cur, RADIUS_M);
+    if (j === nav.cur) {
+      if (nav.cur < 0) $("navstat").textContent = "Menunggu GPS dekat halte pertama…";
+      return;
+    }
+    if (nav.cur >= 0) nav.stops[nav.cur].el.classList.remove("here");
+    nav.cur = j;
+    const { idx, el } = nav.stops[j];
+    el.classList.add("here");
+    const det = el.closest("details");
+    if (det) det.open = true;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (j === nav.stops.length - 1) {
+      stopNav();
+      el.classList.add("here"); // stopNav reset cur; highlight tujuan dipertahankan
+      $("navstat").textContent = "🏁 Sampai di " + nm(idx) + " — navigasi selesai.";
+    } else {
+      $("navstat").textContent = `Posisi: ${nm(idx)} (${j + 1}/${nav.stops.length})`;
+    }
+  }
+
+  $("nav").addEventListener("click", () => {
+    if (nav.watchId != null) { stopNav(); return; }
+    $("nav").textContent = "⏹ Berhenti navigasi";
+    $("navstat").textContent = "Mencari sinyal GPS…";
+    nav.watchId = navigator.geolocation.watchPosition(onFix, (err) => {
+      stopNav();
+      $("navstat").textContent = err.code === 1
+        ? "Izin lokasi ditolak — aktifkan untuk navigasi live."
+        : "Gagal ambil lokasi (sinyal GPS lemah?).";
+    }, { enableHighAccuracy: true, maximumAge: 5000 });
+  });
 
   $("go").addEventListener("click", () => {
     $("err").textContent = ""; $("summary").textContent = ""; $("result").innerHTML = "";
