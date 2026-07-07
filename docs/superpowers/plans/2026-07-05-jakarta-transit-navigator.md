@@ -15,7 +15,7 @@
 > (`route.py`, `build-data.py`, `gtfs-fetch.sh` derive path dari lokasi file sendiri, bukan
 > hardcode `~/jakarta-transit`). Ganti tool/mesin cukup `git clone` → langsung jalan. Di
 > perintah bawah, `~/jakarta-transit` cuma CONTOH lokasi; pakai lokasi repo-mu (mis.
-> `~/DB Lokal/Proyek/jakarta-transit`). Lihat memori [[feedback-portable-projects]].
+> `~/DB-Lokal/Proyek/jakarta-transit`). Lihat memori [[feedback-portable-projects]].
 
 ---
 
