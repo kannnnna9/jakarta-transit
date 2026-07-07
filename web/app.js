@@ -53,13 +53,67 @@
     );
   });
 
-  const nm = (i) => data.stops[i];
-  const li = (cls, text) => {
-    const e = document.createElement("li");
-    if (cls) e.className = cls;
-    e.textContent = text;
-    return e;
-  };
+   const nm = (i) => data.stops[i];
+   const li = (cls, text) => {
+     const e = document.createElement("li");
+     if (cls) e.className = cls;
+     e.textContent = text;
+     return e;
+   };
+
+   // Render route selector tabs untuk multi-rute Pareto
+   let routeOptions = null; // Store all Pareto routes
+   let selectedRouteIdx = 0;
+   
+   function routeSelector(ops, selected) {
+     const wrap = li("route-selector", "");
+     if (ops.length <= 1) return wrap; // Single route, no selector needed
+     const tabs = document.createElement("div");
+     tabs.className = "route-tabs";
+     ops.forEach((r, i) => {
+       const tab = document.createElement("button");
+       tab.textContent = (i === 0 ? "🟢 " : i === 1 ? "🟡 " : "⚪ ") + r.transfers + " tf / " + r.stops + " st";
+       if (i === selected) tab.className = "active";
+       tab.onclick = () => switchRoute(i);
+       tabs.appendChild(tab);
+     });
+     wrap.appendChild(tabs);
+     return wrap;
+   }
+
+   function switchRoute(i) {
+     selectedRouteIdx = i;
+     const ol = $("result"); ol.innerHTML = "";
+     // Re-render route selector (active tab)
+     const selector = routeSelector(routeOptions, i);
+     const first = ol.firstChild;
+     ol.insertBefore(selector, first);
+     // Re-render selected route
+     const res = routeOptions[i];
+     const legs = pathToLegs(res.path);
+     const track = (idx, el) => {
+       const last = nav.stops[nav.stops.length - 1];
+       if (!last || last.idx !== idx) nav.stops.push({ idx, el });
+       return el;
+     };
+     ol.appendChild(track(legs[0].board, stopLi("start", "🚩 ", legs[0].board)));
+     legs.forEach((leg, j) => {
+       if (j > 0) ol.appendChild(transferBlock(legs[j - 1], leg));
+       ol.appendChild(legHeader(leg));
+       ol.appendChild(track(leg.board, stopLi("stop", "Naik: ", leg.board)));
+       if (leg.mid.length) {
+         const { wrap, els } = midDetails(leg.mid);
+         leg.mid.forEach((s, k) => track(s, els[k]));
+         ol.appendChild(wrap);
+       }
+       ol.appendChild(track(leg.alight, stopLi("stop", "Turun: ", leg.alight)));
+     });
+     const endEl = stopLi("end", "🏁 Sampai: ", legs[legs.length - 1].alight);
+     ol.appendChild(endEl);
+     nav.stops[nav.stops.length - 1].el = endEl;
+     // Update summary for selected route
+     $("summary").textContent = `Pilihan ${i+1}: ${res.transfers} transfer · ${res.stops} halte`;
+   }
 
   // Baris halte dgn badge nomor BRT (peta integrasi) sebelum nama, contoh "1-20 Kota".
   function stopLi(cls, prefix, idx) {
@@ -116,38 +170,53 @@
     return { wrap, els };
   }
 
-  function render(res) {
-    stopNav();
-    nav.stops = []; $("nav").hidden = true;
-    const ol = $("result"); ol.innerHTML = "";
-    if (!res) { $("summary").textContent = "Rute tidak ditemukan."; return; }
-    $("summary").textContent = `${res.transfers} transfer · ${res.stops} halte`;
-    const legs = pathToLegs(res.path);
-    if (!legs.length) { $("summary").textContent = "Rute tidak ditemukan."; return; }
+   function render(res) {
+     stopNav();
+     nav.stops = []; $("nav").hidden = true;
+     const ol = $("result"); ol.innerHTML = "";
+     if (!res) { $("summary").textContent = "Rute tidak ditemukan."; return; }
+     
+     // Handle both single route (object) and Pareto routes (array)
+     routeOptions = Array.isArray(res) ? res : [res];
+     selectedRouteIdx = 0;
+     
+     // Show route selector if multiple options
+     if (routeOptions.length > 1) {
+       const selector = routeSelector(routeOptions, selectedRouteIdx);
+       ol.appendChild(selector);
+       $("summary").textContent = "Ditemukan " + routeOptions.length + " opsi rute Pareto-optimal:";
+     } else {
+       $("summary").textContent = `${routeOptions[0].transfers} transfer · ${routeOptions[0].stops} halte`;
+     }
+     
+     // Render selected route
+     const selected = routeOptions[selectedRouteIdx];
+     const legs = pathToLegs(selected.path);
+     if (!legs.length) { $("summary").textContent = "Rute tidak ditemukan."; return; }
 
-    // track: urutan halte jalur buat navigasi live (skip duplikat berurutan)
-    const track = (idx, el) => {
-      const last = nav.stops[nav.stops.length - 1];
-      if (!last || last.idx !== idx) nav.stops.push({ idx, el });
-      return el;
-    };
-    ol.appendChild(track(legs[0].board, stopLi("start", "🚩 ", legs[0].board)));
-    legs.forEach((leg, i) => {
-      if (i > 0) ol.appendChild(transferBlock(legs[i - 1], leg));
-      ol.appendChild(legHeader(leg));
-      ol.appendChild(track(leg.board, stopLi("stop", "Naik: ", leg.board)));
-      if (leg.mid.length) {
-        const { wrap, els } = midDetails(leg.mid);
-        leg.mid.forEach((s, j) => track(s, els[j]));
-        ol.appendChild(wrap);
-      }
-      ol.appendChild(track(leg.alight, stopLi("stop", "Turun: ", leg.alight)));
-    });
-    const endEl = stopLi("end", "🏁 Sampai: ", legs[legs.length - 1].alight);
-    ol.appendChild(endEl);
-    nav.stops[nav.stops.length - 1].el = endEl; // highlight tiba di baris "Sampai", bukan "Turun"
-    if (navigator.geolocation) $("nav").hidden = false;
-  }
+     // track: urutan halte jalur buat navigasi live (skip duplikat berurutan)
+     const track = (idx, el) => {
+       const last = nav.stops[nav.stops.length - 1];
+       if (!last || last.idx !== idx) nav.stops.push({ idx, el });
+       return el;
+     };
+     ol.appendChild(track(legs[0].board, stopLi("start", "🚩 ", legs[0].board)));
+     legs.forEach((leg, i) => {
+       if (i > 0) ol.appendChild(transferBlock(legs[i - 1], leg));
+       ol.appendChild(legHeader(leg));
+       ol.appendChild(track(leg.board, stopLi("stop", "Naik: ", leg.board)));
+       if (leg.mid.length) {
+         const { wrap, els } = midDetails(leg.mid);
+         leg.mid.forEach((s, j) => track(s, els[j]));
+         ol.appendChild(wrap);
+       }
+       ol.appendChild(track(leg.alight, stopLi("stop", "Turun: ", leg.alight)));
+     });
+     const endEl = stopLi("end", "🏁 Sampai: ", legs[legs.length - 1].alight);
+     ol.appendChild(endEl);
+     nav.stops[nav.stops.length - 1].el = endEl; // highlight tiba di baris "Sampai", bukan "Turun"
+     if (navigator.geolocation) $("nav").hidden = false;
+   }
 
   // --- Navigasi live: watchPosition -> snap maju-only -> highlight halte aktif ---
   function stopNav() {

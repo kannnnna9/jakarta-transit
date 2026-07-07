@@ -60,9 +60,21 @@
     return { nameStops, routesAt };
   }
 
-  // Cari rute halte-asal -> halte-tujuan (NAMA PERSIS). Biaya (transfer, stop).
-  // Return {transfers, stops, path} atau null. path: {kind:"board"|"take"|"ride", stop, route}
-  function findRoute(data, originName, destName, index) {
+  // Pareto: filter non-dominated pairs
+  function paretoFilter(pairs) {
+    if (pairs.length === 0) return [];
+    pairs.sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]));
+    const result = [pairs[0]];
+    for (let i = 1; i < pairs.length; i++) {
+      const dominated = result.some(([ptr, pst]) => ptr <= pairs[i][0] && pst <= pairs[i][1] && (ptr < pairs[i][0] || pst < pairs[i][1]));
+      if (!dominated) result.push(pairs[i]);
+    }
+    return result;
+  }
+
+  // Cari rute halte-asal -> halte-tujuan (NAMA PERSIS). Pareto optimal: min (transfer, stops).
+  // Return list of {transfers, stops, path} sorted by (transfers, stops).
+  function findRoute(data, originName, destName, index, paretoLimit = 3) {
     const { nameStops, routesAt } = index || buildIndex(data);
     const origins = nameStops.get(originName);
     const dests = new Set(nameStops.get(destName) || []);
@@ -70,32 +82,78 @@
     if (!dests.size) throw new Error("halte tujuan tidak ditemukan: " + destName);
 
     const edges = data.edges, stopName = data.stops;
-    const heap = new MinHeap(); let seq = 0;
+    const heap = []; let seq = 0;
+    
+    function heapPush(x) {
+      heap.push(x);
+      let i = heap.length - 1;
+      while (i > 0) {
+        const p = (i - 1) >> 1;
+        if (heap[i].tr < heap[p].tr || (heap[i].tr === heap[p].tr && heap[i].st < heap[p].st) ||
+            (heap[i].tr === heap[p].tr && heap[i].st === heap[p].st && heap[i].seq < heap[p].seq)) {
+          [heap[i], heap[p]] = [heap[p], heap[i]];
+          i = p;
+        } else break;
+      }
+    }
+    function heapPop() {
+      if (heap.length === 0) return null;
+      const top = heap[0];
+      const last = heap.pop();
+      if (heap.length) {
+        heap[0] = last;
+        let i = 0, n = heap.length;
+        while (true) {
+          let l = 2 * i + 1, r = 2 * i + 2, m = i;
+          if (l < n && (heap[l].tr < heap[m].tr || (heap[l].tr === heap[m].tr && heap[l].st < heap[m].st) ||
+                        (heap[l].tr === heap[m].tr && heap[l].st === heap[m].st && heap[l].seq < heap[m].seq))) m = l;
+          if (r < n && (heap[r].tr < heap[m].tr || (heap[r].tr === heap[m].tr && heap[r].st < heap[m].st) ||
+                        (heap[r].tr === heap[m].tr && heap[r].st === heap[m].st && heap[r].seq < heap[m].seq))) m = r;
+          if (m === i) break;
+          [heap[i], heap[m]] = [heap[m], heap[i]];
+          i = m;
+        }
+      }
+      return top;
+    }
+    
     for (const s of origins)
-      heap.push({ cost: 0, tr: 0, st: 0, seq: seq++, stop: s, route: null,
-                  path: [{ kind: "board", stop: s, route: null, xtype: null }] });
+      heapPush({ tr: 0, st: 0, seq: seq++, stop: s, route: null,
+                 path: [{ kind: "board", stop: s, route: null, xtype: null }] });
 
-    const best = new Map(); // `${stop},${route}` -> cost (tr*WEIGHT+st)
-    while (heap.size) {
-      const cur = heap.pop();
-      if (dests.has(cur.stop))
-        return { transfers: cur.tr, stops: cur.st, path: cur.path };
+    const best = new Map();
+    const solutions = [];
+    const maxStates = 10000;
+    
+    while (heap.length && solutions.length < paretoLimit * 5) {
+      const cur = heapPop();
+      if (!cur) break;
+      
       const key = cur.stop + "," + cur.route;
-      if (best.has(key) && best.get(key) <= cur.cost) continue;
-      best.set(key, cur.cost);
-
-      // ride: maju 1 stop di route sama (transfer +0, stop +1)
+      let existing = best.get(key);
+      if (existing) {
+        const dominated = existing.some(([etr, est]) => etr <= cur.tr && est <= cur.st && (etr < cur.tr || est < cur.st));
+        if (dominated) continue;
+        existing = existing.filter(([etr, est]) => !(cur.tr <= etr && cur.st <= est && (cur.tr < etr || cur.st < est)));
+      } else {
+        existing = [];
+      }
+      existing.push([cur.tr, cur.st]);
+      best.set(key, existing);
+      
+      if (dests.has(cur.stop)) {
+        solutions.push({ transfers: cur.tr, stops: cur.st, path: cur.path });
+        if (solutions.length >= paretoLimit * 5) break;
+        continue;
+      }
+      
       if (cur.route !== null) {
         const nexts = edges[cur.route] && edges[cur.route][cur.stop];
         if (nexts) for (const nx of nexts) {
-          const nst = cur.st + 1;
-          heap.push({ cost: cur.tr * WEIGHT + nst, tr: cur.tr, st: nst, seq: seq++,
-                      stop: nx, route: cur.route,
-                      path: cur.path.concat([{ kind: "ride", stop: nx, route: cur.route, xtype: null }]) });
+          heapPush({ tr: cur.tr, st: cur.st + 1, seq: seq++, stop: nx, route: cur.route,
+                     path: cur.path.concat([{ kind: "ride", stop: nx, route: cur.route, xtype: null }]) });
         }
       }
-      // board/transfer: halte NAMA SAMA (type "s") + link xfer bertipe (o/w/s).
-      // Cost +WEIGHT per transfer apa pun jenisnya; jenis cuma label (mirror route.py).
       const targets = [];
       for (const s2 of nameStops.get(stopName[cur.stop])) targets.push([s2, "s"]);
       const xl = data.xfer && data.xfer[cur.stop];
@@ -103,14 +161,24 @@
       for (const [s2, xtype] of targets) {
         for (const r2 of routesAt[s2]) {
           if (r2 === cur.route) continue;
-          const ntr = cur.route === null ? cur.tr : cur.tr + 1;
-          heap.push({ cost: ntr * WEIGHT + cur.st, tr: ntr, st: cur.st, seq: seq++,
-                      stop: s2, route: r2, xtype,
-                      path: cur.path.concat([{ kind: "take", stop: s2, route: r2, xtype }]) });
+          heapPush({ tr: cur.route === null ? cur.tr : cur.tr + 1, st: cur.st, seq: seq++, stop: s2, route: r2, xtype,
+                     path: cur.path.concat([{ kind: "take", stop: s2, route: r2, xtype }]) });
         }
       }
     }
-    return null;
+    
+    const seen = new Set();
+    const pareto = [];
+    solutions.sort((a, b) => (a.transfers - b.transfers) || (a.stops - b.stops));
+    for (const sol of solutions) {
+      const key = sol.transfers + "," + sol.stops;
+      if (!seen.has(key)) {
+        seen.add(key);
+        pareto.push(sol);
+      }
+    }
+    
+    return pareto.slice(0, paretoLimit);
   }
 
   return { MinHeap, buildIndex, findRoute };

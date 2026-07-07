@@ -69,20 +69,31 @@ Badge "koridor-urut" (mis. `1-20 Kota`) di depan nama halte tiap muncul di hasil
 `build-data.py` dari urutan halte per koridor + verifikasi manual vs peta cetak (`SNUM_OVERRIDE`
 buat beda GTFS/peta). Router & UI tak diubah. Detail: `CHANGELOG.md` [1.3.0].
 
-## v1.5? — Beberapa opsi rute (Pareto) — IDE (Reza minta 2026-07-06)
-1 opsi rute terlalu kaku. Tampilkan 2–3 rute alternatif Pareto-optimal biar user pilih sendiri
-tradeoff-nya, mis: **paling sedikit transfer** / **paling sedikit halte** / **seimbang**. Ini
-sekalian nutup dilema tuning WEIGHT (user yang putuskan, bukan satu angka). Butuh: k-shortest /
-label-Pareto di router + UI daftar pilihan (tab/kartu). Rancang jadi plan sendiri saat digarap.
+## v1.5 — Beberapa opsi rute (Pareto) — SHIPPED 2026-07-07
 
-## v1.4.0 — Navigasi live (highlight list, NO peta) — SHIPPED 2026-07-07
+v1.4.0 SHIPPED + LIVE (riwayat lengkap di [`CHANGELOG.md`](CHANGELOG.md)). Rilis v1.4.0:
 
-`watchPosition` → snap maju-only ke halte terdekat di jalur rute (radius 50 m), highlight +
-auto-scroll halte aktif, berhenti sendiri di tujuan. Modul murni `web/livenav.js` + tes.
-Router & data tak diubah. Plan: `docs/superpowers/plans/2026-07-07-jakarta-transit-v1.4-livenav.md`.
-Detail: `CHANGELOG.md` [1.4.0].
+- **v1.4.0** — Navigasi live (highlight list, NO peta), nomor halte BRT sesuai peta integrasi, tampilan per-leg + badge jenis bus. **LIVE di Pages.**
 
-`// ponytail: highlight-list dulu; peta cuma kalau list beneran kurang, bukan spekulatif.`
+### Added (v1.5)
+- **Multi-rute Pareto**: Router kini menemukan 2-3 rute alternatif Pareto-optimal. Setiap rute menampilkan
+  tradeoff: **minim transfer** vs **minim halte** vs **seimbang**. User pilih sendiri via tab selector.
+- **Dijkstra Pareto (label-setting)**: Algoritma menyimpan semua non-dominated labels per state (stop, route).
+  Output list solusi terurut (transfers, stops). Paritas antara `route.py` + `web/router.js`.
+- **UI tab selector**: Tombol-tombol pilihan rute dengan indikator (🟢 1st, 🟡 2nd, ⚪ 3rd).
+- **Weighted cost tetap**: Internal cost model tetap `transfer × WEIGHT + stops` untuk optimal exploration,
+  tapi output Pareto menampilkan semua tradeoff yang non-dominated.
+
+### Changed (v1.5)
+- **router.js + route.py**: Implementasi Pareto algorithm. Router ambil Pareto solutions dari heap
+  exploration, filter unique (transfers, stops), sort, limit. Paritas oracle terjaga (Pancoran→Ragunan: 0tf/18st + 1tf/10st).
+- **web/app.js + index.html**: Render route selector jika >1 opsi. User switch tab untuk pilih rute.
+  Summary berubah jadi "Pilihan X: Y transfer · Z halte".
+
+### Notes
+- Router & data TIDAK diubah — murni tambahan rendering/DOM. Semua tes lama hijau.
+- `web/sw.js` cache di-bump `jt-v7` (app-shell: + route-selector, tab styles).
+- Path seluruhnya relatif — tetap aman di subpath `/jakarta-transit/`.
 
 ---
 

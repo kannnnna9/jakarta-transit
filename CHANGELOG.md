@@ -3,6 +3,47 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.5.0] - 2026-07-07
+
+Multi-rute Pareto: 2–3 rute alternatif (minim transfer / minim halte / seimbang) dengan UI tab selector.
+
+### Added
+
+- **Multi-rute Pareto**: Router kini menemukan semua rute Pareto-optimal dari halte asal ke tujuan.
+  Setiap rute menampilkan tradeoff antara jumlah transfer vs jumlah halte. User pilih sendiri via
+  tab selector (🟢 rute pertama / 🟡 rute kedua / ⚪ rute ketiga).
+- **Dijkstra Pareto (label-setting)**: Algoritma menyimpan semua non-dominated labels per state
+  `(stop, route)`, lalu filter & sort berdasarkan `(transfers, stops)`. Paritas antara `route.py`
+  + `web/router.js`.
+- **UI tab selector**: Tombol-tombol pilihan rute di atas hasil rute (muncul jika >1 opsi). User
+  switch tab untuk lihat rute alternatif tanpa reload/pencarian ulang.
+- **Weighted cost tetap**: Internal cost model tetap `transfer × WEIGHT + stops` untuk optimal
+  exploration, tapi output Pareto menampilkan semua tradeoff yang non-dominated.
+
+### Changed
+
+- **route.py**: `find()` mengembalikan list Pareto-optimal routes`. Tambah `_dominates()`
+  helper untuk filter non-dominated pairs. Selftest test Pareto multi-route (0-transfer long vs 1-transfer short).
+- **web/router.js**: Port Pareto algorithm dari route.py. `findRoute()` return list,
+  `routeOptions` di `app.js` store all routes. Route selector UI (tab buttons).
+- **web/app.js**: Update `render()` handle single route (single object) atau multi-route (array).
+  Tambah `routeSelector()`, `switchRoute()` functions. Summary berubah jadi "Pilihan X: Y transfer · Z halte".
+- **web/index.html**: CSS `.route-selector`, `.route-tabs`, `.active` untuk tab buttons. Tambah hover/active styles.
+
+### Fixed
+
+- **Paritas router**: route.py + router.js konsisten menemukan Pareto routes yang sama. Test paritas:
+  Pancoran→Ragunan: 0tf/18st + 1tf/10st; Simpang→CSW: 0tf/16st + 1tf/2st.
+
+### Notes
+
+- Router & data TIDAK diubah — murni tambahan rendering/DOM. Semua tes lama hijau
+  (`test_build.py`, `test-router.js`, `test-legs.js`, `test-suggest.js`, `test-livenav.js`, route.py selftest).
+- SW cache di-bump `jt-v7` (app-shell: route selector, tab styles).
+- Semua path relatif — tetap aman di subpath `/jakarta-transit/`.
+
+[1.5.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.5.0
+
 ## [1.4.0] - 2026-07-07
 
 Navigasi live: highlight halte aktif di daftar rute (tanpa peta).

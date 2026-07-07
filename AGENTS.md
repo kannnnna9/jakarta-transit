@@ -29,9 +29,9 @@ Repo = sumber kebenaran. Semua konteks ada di sini, bukan di memory tool tertent
 
 ## Status sekarang
 
-**v1.4.0 SHIPPED + LIVE** di Pages (riwayat lengkap: `CHANGELOG.md`). Sudah masuk: GPS/koordinat + transfer 3-jenis (v1.1), weighted route cost W=8 (v1.1.1), tampilan per-leg + badge jenis bus (v1.2.0), nomor halte BRT "koridor-urut" sesuai peta integrasi + `SNUM_OVERRIDE` (v1.3.0), navigasi live snap maju-only tanpa peta (v1.4.0, modul `web/livenav.js`).
+**v1.5.0 SHIPPED + LIVE** di Pages (riwayat lengkap: `CHANGELOG.md`). Sudah masuk: GPS/koordinat + transfer 3-jenis (v1.1), weighted route cost W=8 (v1.1.1), tampilan per-leg + badge jenis bus (v1.2.0), nomor halte BRT "koridor-urut" sesuai peta integrasi + `SNUM_OVERRIDE` (v1.3.0), navigasi live snap maju-only tanpa peta (v1.4.0, modul `web/livenav.js`), multi-rute Pareto dengan UI tab selector (v1.5.0, `web/app.js`, `route.py`, `web/router.js` Pareto).
 
 Sisa manual: regenerate APK di PWABuilder (situs eksternal, dikerjakan Reza) — ikon masih placeholder "JT", ganti logo asli sebelum submit Play.
 
 Fitur berikutnya (lihat `docs/ROADMAP.md`):
-- **v1.5 — Multi-rute Pareto** (ide, diminta Reza): 2–3 alternatif rute (minim transfer / minim halte / seimbang). Butuh k-shortest/label-Pareto di router (jaga paritas route.py!) + UI kartu pilihan. Rancang jadi plan sendiri saat digarap.
+- **Testing & tuning**: Calibrate WEIGHT, proximity threshold, radius nav sesuai data real.
