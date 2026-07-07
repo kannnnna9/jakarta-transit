@@ -8,9 +8,9 @@ Pilih halte asal + tujuan (autocomplete nama halte), dapat rute minim-transfer l
 
 ## Status
 
-- **v1.0.0** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). MVP jalan penuh, PWA offline, Pages live.
+- **v1.3.0** — SHIPPED + LIVE (lihat [`CHANGELOG.md`](CHANGELOG.md)). GPS + transfer 3-jenis, tampilan per-leg + badge jenis bus, nomor halte BRT sesuai peta integrasi.
 - Sisa: regenerate APK di PWABuilder saat mau (ikon sekarang placeholder "JT").
-- Roadmap v1.1/v1.2 (GPS halte terdekat, search substring, transfer 3-jenis, live-nav): [`docs/ROADMAP.md`](docs/ROADMAP.md).
+- Roadmap berikutnya (v1.4 live-nav, v1.5 multi-rute Pareto): [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Struktur
 
