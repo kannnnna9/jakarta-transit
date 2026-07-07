@@ -51,6 +51,7 @@ Multi-rute Pareto: 2–3 rute alternatif (minim transfer / minim halte / seimban
 - SW cache di-bump `jt-v7` (app-shell: route selector, tab styles).
 - Semua path relatif — tetap aman di subpath `/jakarta-transit/`.
 
+[1.5.1]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.5.1
 [1.5.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.5.0
 
 ## [1.4.0] - 2026-07-07

@@ -71,16 +71,14 @@ buat beda GTFS/peta). Router & UI tak diubah. Detail: `CHANGELOG.md` [1.3.0].
 
 ## v1.5 — Beberapa opsi rute (Pareto) — SHIPPED 2026-07-07
 
-v1.4.0 SHIPPED + LIVE (riwayat lengkap di [`CHANGELOG.md`](CHANGELOG.md)). Rilis v1.4.0:
-
-- **v1.4.0** — Navigasi live (highlight list, NO peta), nomor halte BRT sesuai peta integrasi, tampilan per-leg + badge jenis bus. **LIVE di Pages.**
+v1.5.0 + v1.5.1 (hotfix) SHIPPED + LIVE (riwayat lengkap di [`CHANGELOG.md`](CHANGELOG.md)).
 
 ### Added (v1.5)
 - **Multi-rute Pareto**: Router kini menemukan 2-3 rute alternatif Pareto-optimal. Setiap rute menampilkan
   tradeoff: **minim transfer** vs **minim halte** vs **seimbang**. User pilih sendiri via tab selector.
 - **Dijkstra Pareto (label-setting)**: Algoritma menyimpan semua non-dominated labels per state (stop, route).
   Output list solusi terurut (transfers, stops). Paritas antara `route.py` + `web/router.js`.
-- **UI tab selector**: Tombol-tombol pilihan rute dengan indikator (🟢 1st, 🟡 2nd, ⚪ 3rd).
+- **UI tab selector**: Tombol-tombol pilihan rute dengan label deskriptif ("Minim transfer" / "Minim halte" / "Seimbang"), warna dot (🟢/🟡/⚪). Tab muncul hanya jika ≥2 opsi.
 - **Weighted cost tetap**: Internal cost model tetap `transfer × WEIGHT + stops` untuk optimal exploration,
   tapi output Pareto menampilkan semua tradeoff yang non-dominated.
 
