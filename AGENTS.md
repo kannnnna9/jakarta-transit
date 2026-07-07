@@ -29,7 +29,7 @@ Repo = sumber kebenaran. Semua konteks ada di sini, bukan di memory tool tertent
 
 ## Status sekarang
 
-**v1.5.0 SHIPPED + LIVE** di Pages (riwayat lengkap: `CHANGELOG.md`). Sudah masuk: GPS/koordinat + transfer 3-jenis (v1.1), weighted route cost W=8 (v1.1.1), tampilan per-leg + badge jenis bus (v1.2.0), nomor halte BRT "koridor-urut" sesuai peta integrasi + `SNUM_OVERRIDE` (v1.3.0), navigasi live snap maju-only tanpa peta (v1.4.0, modul `web/livenav.js`), multi-rute Pareto dengan UI tab selector (v1.5.0, `web/app.js`, `route.py`, `web/router.js` Pareto).
+**v1.5.1 SHIPPED + LIVE** di Pages (riwayat lengkap: `CHANGELOG.md`). Sudah masuk: GPS/koordinat + transfer 3-jenis (v1.1), weighted route cost W=8 (v1.1.1), tampilan per-leg + badge jenis bus (v1.2.0), nomor halte BRT "koridor-urut" sesuai peta integrasi + `SNUM_OVERRIDE` (v1.3.0), navigasi live snap maju-only tanpa peta (v1.4.0, modul `web/livenav.js`), multi-rute Pareto dengan UI tab selector deskriptif (v1.5.1 hotfix: Pareto pruning fix + tab label).
 
 Sisa manual: regenerate APK di PWABuilder (situs eksternal, dikerjakan Reza) — ikon masih placeholder "JT", ganti logo asli sebelum submit Play.
 

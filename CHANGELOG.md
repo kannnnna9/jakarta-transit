@@ -3,6 +3,15 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.5.1] - 2026-07-07
+
+Hotfix Pareto router — fixed dominated-label pruning yang terlalu agresif sehingga rute 0-transfer tak ditemukan.
+
+### Fixed
+
+- **web/router.js**: Dominance pruning sekarang hanya dilakukan saat eksplorasi (bukan sebelum destination check). Jalur ke destination dikumpulkan dulu, lalu difilter Pareto di akhir. Memperbaiki bug di mana rute langsung (0-transfer) tidak muncul karena label di-prune sebelum mencapai tujuan.
+- **web/app.js**: Tab selector pakai label deskriptif ("Minim transfer" / "Minim halte" / "Seimbang") alih-alih format "tf/st".
+
 ## [1.5.0] - 2026-07-07
 
 Multi-rute Pareto: 2–3 rute alternatif (minim transfer / minim halte / seimbang) dengan UI tab selector.

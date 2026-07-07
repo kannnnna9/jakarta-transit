@@ -65,21 +65,30 @@
    let routeOptions = null; // Store all Pareto routes
    let selectedRouteIdx = 0;
    
-   function routeSelector(ops, selected) {
-     const wrap = li("route-selector", "");
-     if (ops.length <= 1) return wrap; // Single route, no selector needed
-     const tabs = document.createElement("div");
-     tabs.className = "route-tabs";
-     ops.forEach((r, i) => {
-       const tab = document.createElement("button");
-       tab.textContent = (i === 0 ? "🟢 " : i === 1 ? "🟡 " : "⚪ ") + r.transfers + " tf / " + r.stops + " st";
-       if (i === selected) tab.className = "active";
-       tab.onclick = () => switchRoute(i);
-       tabs.appendChild(tab);
-     });
-     wrap.appendChild(tabs);
-     return wrap;
-   }
+   function routeLabel(r, i, total) {
+      if (total <= 2) return i === 0 ? "Minim transfer" : "Minim halte";
+      if (i === 0) return "Minim transfer";
+      if (i === total - 1) return "Minim halte";
+      return "Seimbang";
+    }
+
+    function routeSelector(ops, selected) {
+      const wrap = li("route-selector", "");
+      if (ops.length <= 1) return wrap;
+      const tabs = document.createElement("div");
+      tabs.className = "route-tabs";
+      ops.forEach((r, i) => {
+        const tab = document.createElement("button");
+        const label = routeLabel(r, i, ops.length);
+        const dot = i === 0 ? "🟢" : i === ops.length - 1 ? "⚪" : "🟡";
+        tab.textContent = dot + " " + label;
+        if (i === selected) tab.className = "active";
+        tab.onclick = () => switchRoute(i);
+        tabs.appendChild(tab);
+      });
+      wrap.appendChild(tabs);
+      return wrap;
+    }
 
    function switchRoute(i) {
      selectedRouteIdx = i;
@@ -112,7 +121,8 @@
      ol.appendChild(endEl);
      nav.stops[nav.stops.length - 1].el = endEl;
      // Update summary for selected route
-     $("summary").textContent = `Pilihan ${i+1}: ${res.transfers} transfer · ${res.stops} halte`;
+      const label = routeLabel(res, i, routeOptions.length);
+      $("summary").textContent = label + ": " + res.transfers + " transfer · " + res.stops + " halte";
    }
 
   // Baris halte dgn badge nomor BRT (peta integrasi) sebelum nama, contoh "1-20 Kota".

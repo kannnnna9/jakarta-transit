@@ -129,22 +129,24 @@
       const cur = heapPop();
       if (!cur) break;
       
-      const key = cur.stop + "," + cur.route;
-      let existing = best.get(key);
-      if (existing) {
-        const dominated = existing.some(([etr, est]) => etr <= cur.tr && est <= cur.st && (etr < cur.tr || est < cur.st));
-        if (dominated) continue;
-        existing = existing.filter(([etr, est]) => !(cur.tr <= etr && cur.st <= est && (cur.tr < etr || cur.st < est)));
-      } else {
-        existing = [];
-      }
-      existing.push([cur.tr, cur.st]);
-      best.set(key, existing);
-      
+      // Keep ALL paths to destination, filter Pareto later
       if (dests.has(cur.stop)) {
         solutions.push({ transfers: cur.tr, stops: cur.st, path: cur.path });
         if (solutions.length >= paretoLimit * 5) break;
         continue;
+      }
+      
+      // Mark state as visited, allow multiple non-dominated labels
+      const key = cur.stop + "," + cur.route;
+      const existing = best.get(key);
+      if (existing && existing.some(([etr, est]) => etr <= cur.tr && est <= cur.st)) {
+        continue; // dominated
+      }
+      // Add new label
+      if (existing) {
+        existing.push([cur.tr, cur.st]);
+      } else {
+        best.set(key, [[cur.tr, cur.st]]);
       }
       
       if (cur.route !== null) {
