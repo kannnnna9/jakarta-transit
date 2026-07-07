@@ -1,7 +1,7 @@
 "use strict";
 // App-shell = cache-first (offline). data.json = stale-while-revalidate
 // (update data nyampe otomatis saat online, tanpa rebuild APK). Lihat spec Bagian 14.
-const CACHE = "jt-v6"; // bump HANYA kalau app-shell (html/js/css) berubah
+const CACHE = "jt-v7"; // bump HANYA kalau app-shell (html/js/css) berubah
 const SHELL = ["./", "./index.html", "./router.js", "./suggest.js", "./legs.js", "./livenav.js", "./app.js", "./manifest.json"];
 
 self.addEventListener("install", (e) => {
