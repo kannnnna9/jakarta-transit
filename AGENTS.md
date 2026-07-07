@@ -9,7 +9,7 @@ Repo = sumber kebenaran. Semua konteks ada di sini, bukan di memory tool tertent
 2. [`OPEN-QUESTIONS.md`](OPEN-QUESTIONS.md) — keputusan yg SUDAH dikunci. Jangan bikin ulang. Item `DECIDED` = pakai apa adanya.
 3. [`docs/superpowers/specs/`](docs/superpowers/specs/) — spec desain (sumber kebenaran perilaku).
 4. [`docs/superpowers/plans/`](docs/superpowers/plans/) — plan implementasi TDD (Task 0–6).
-5. [`docs/ROADMAP.md`](docs/ROADMAP.md) — rencana berikutnya (v1.4 live-nav DECIDED, v1.5 multi-rute Pareto ide).
+5. [`docs/ROADMAP.md`](docs/ROADMAP.md) — rencana berikutnya (testing & tuning v1.6).
 6. [`CHANGELOG.md`](CHANGELOG.md) — apa yg udah rilis.
 
 ## Aturan
