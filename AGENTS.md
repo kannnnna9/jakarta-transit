@@ -19,6 +19,8 @@ Repo = sumber kebenaran. Semua konteks ada di sini, bukan di memory tool tertent
 - **TDD.** Fitur/bugfix baru: tulis tes dulu (`test_build.py` / `test-router.js` / `test-legs.js` / `test-suggest.js`), baru implementasi.
 - **Path web wajib relatif** (app jalan di subpath `/jakarta-transit/`). Jangan pakai `/absolute`.
 - **Jangan commit** `.env` / `data/` (GTFS cache) — udah di `.gitignore`.
+- **Sinkron dokumen TIAP task selesai** (bagian dari task, bukan opsional): update `CHANGELOG.md` (format [Keep a Changelog](https://keepachangelog.com/id/1.1.0/), bagian Added/Changed/Fixed + link tag), status di `docs/ROADMAP.md` (tandai SHIPPED/DECIDED), dan section "Status sekarang" di file ini + `README.md` kalau versi naik. Ikuti format/gaya yang sudah ada di tiap file — jangan bikin format baru.
+- **Commit + push** setelah dokumen sinkron. Rilis dianggap selesai hanya kalau sudah LIVE di Pages + dokumen sinkron.
 
 ## Gotcha lingkungan (Termux)
 
