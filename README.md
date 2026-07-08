@@ -8,7 +8,7 @@ Pilih halte asal + tujuan (autocomplete nama halte), dapat rute minim-transfer l
 
 ## Status
 
-- **v1.5.1** — SHIPPED + LIVE (lihat [`CHANGELOG.md`](CHANGELOG.md)). Hotfix Pareto router (label pruning fix), tab deskriptif.
+- **v1.6.0** — SHIPPED + LIVE (lihat [`CHANGELOG.md`](CHANGELOG.md)). Transfer 3-jenis UI (jarak jalan kaki ditampilkan, label per-jenis dirapikan).
 - Sisa: regenerate APK di PWABuilder saat mau (ikon sekarang placeholder "JT").
 - Roadmap berikutnya (tuning v1.6): [`docs/ROADMAP.md`](docs/ROADMAP.md).
 

@@ -141,12 +141,18 @@
 
   // Blok transfer antar-leg. Ikon beda per jenis biar tak rancu:
   // 🚶 jalan kaki (w) · 🔗 halte terhubung/transfer resmi (o) · ↔️ pindah peron (s).
+  // tipe "w" tampilkan jarak; "s" → pindah peron; sisanya → "lanjut" (non-BRT).
   function transferBlock(prev, leg) {
     const to = nm(leg.board);
     let text;
-    if (leg.xtype === "w") text = "🚶 Jalan kaki ke " + to;
-    else if (leg.xtype === "o") text = "🔗 Pindah di halte terhubung";
-    else text = nm(prev.alight) === to ? "↔️ Pindah peron di " + to : "↔️ Pindah ke " + to;
+    if (leg.xtype === "w")
+      text = "🚶 Jalan kaki " + (leg.xdist ? "~" + leg.xdist + " m " : "") + "ke " + to;
+    else if (leg.xtype === "o")
+      text = "🔗 Pindah di halte terhubung " + to;
+    else if (leg.xtype === "s")
+      text = "↔️ Pindah peron di " + to;
+    else
+      text = "↔️ Lanjut naik " + to;
     return li("xfer", "── " + text + " ──");
   }
 

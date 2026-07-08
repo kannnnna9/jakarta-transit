@@ -157,14 +157,14 @@
         }
       }
       const targets = [];
-      for (const s2 of nameStops.get(stopName[cur.stop])) targets.push([s2, "s"]);
+      for (const s2 of nameStops.get(stopName[cur.stop])) targets.push([s2, "s", 0]);
       const xl = data.xfer && data.xfer[cur.stop];
-      if (xl) for (const link of xl) targets.push([link[0], link[1]]);
-      for (const [s2, xtype] of targets) {
+      if (xl) for (const link of xl) targets.push([link[0], link[1], link[2]]);
+      for (const [s2, xtype, xdist] of targets) {
         for (const r2 of routesAt[s2]) {
           if (r2 === cur.route) continue;
-          heapPush({ tr: cur.route === null ? cur.tr : cur.tr + 1, st: cur.st, seq: seq++, stop: s2, route: r2, xtype,
-                     path: cur.path.concat([{ kind: "take", stop: s2, route: r2, xtype }]) });
+          heapPush({ tr: cur.route === null ? cur.tr : cur.tr + 1, st: cur.st, seq: seq++, stop: s2, route: r2, xtype, xdist,
+                     path: cur.path.concat([{ kind: "take", stop: s2, route: r2, xtype, xdist }]) });
         }
       }
     }

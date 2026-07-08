@@ -177,7 +177,7 @@ def find(origin, dest, data, pareto_limit=3):
     seq = count()
     pq = []
     for s in origins:
-        label = (0, 0, next(seq), [("board", s, None, None)])
+        label = (0, 0, next(seq), [("board", s, None, None, None)])
         heapq.heappush(pq, (0, 0, label[2], s, None, label))
     
     # best[state] = list of non-dominated (transfers, stops) pairs
@@ -210,19 +210,19 @@ def find(origin, dest, data, pareto_limit=3):
         if route is not None:
             for nxt in sorted(ride[route].get(stop, ())):
                 nst = st + 1
-                new_label = (tr, nst, next(seq), path + [("ride", nxt, route, None)])
+                new_label = (tr, nst, next(seq), path + [("ride", nxt, route, None, None)])
                 heapq.heappush(pq, (tr, nst, new_label[2], nxt, route, new_label))
         
         # board / transfer
-        targets = [(s2, "s") for s2 in name_stops[stop_name[stop]]]
-        for nb, ty, _dist in xfer.get(stop, ()):
-            targets.append((nb, ty))
-        for s2, xtype in targets:
+        targets = [(s2, "s", 0) for s2 in name_stops[stop_name[stop]]]
+        for nb, ty, dist in xfer.get(stop, ()):
+            targets.append((nb, ty, dist))
+        for s2, xtype, xdist in targets:
             for r2 in sorted(routes_at[s2]):
                 if r2 == route:
                     continue
                 ntr = tr if route is None else tr + 1
-                new_label = (ntr, st, next(seq), path + [("take", s2, r2, xtype)])
+                new_label = (ntr, st, next(seq), path + [("take", s2, r2, xtype, xdist)])
                 heapq.heappush(pq, (ntr, st, new_label[2], s2, r2, new_label))
     
     # Filter Pareto-optimal from solutions
@@ -255,13 +255,14 @@ def render(res, data):
         return
     transfers, stops, path = res
     print(f"Route found: {transfers} transfer(s), {stops} stop(s)\n")
-    tags = {"o": " [transfer resmi]", "w": " [jalan kaki]"}
-    for kind, stop, route, xtype in path:
+    tags = {"o": " [transfer resmi]", "w": " [jalan kaki]", "s": " [pindah peron]"}
+    for kind, stop, route, xtype, xdist in path:
         nm = stop_name[stop]
         if kind == "board":
             print(f"START at {nm}")
         elif kind == "take":
-            print(f"  -> board  [{rname[route]}]{tags.get(xtype, '')}  at {nm}")
+            dist = f" ~{xdist}m" if xtype == "w" and xdist else ""
+            print(f"  -> board  [{rname[route]}]{tags.get(xtype, '')}{dist}  at {nm}")
         elif kind == "ride":
             print(f"       ...  {nm}")
     print(f"\nARRIVE at {stop_name[path[-1][1]]}")
@@ -280,13 +281,14 @@ if __name__ == "__main__":
         for i, (tr, st, path) in enumerate(routes, 1):
             print(f"--- Option {i} ---")
             print(f"{tr} transfer(s), {st} stop(s)\n")
-            tags = {"o": " [transfer resmi]", "w": " [jalan kaki]"}
-            for kind, stop, route, xtype in path:
+            tags = {"o": " [transfer resmi]", "w": " [jalan kaki]", "s": " [pindah peron]"}
+            for kind, stop, route, xtype, xdist in path:
                 nm = stop_name[stop]
                 if kind == "board":
                     print(f"START at {nm}")
                 elif kind == "take":
-                    print(f"  -> board  [{rname[route]}]{tags.get(xtype, '')}  at {nm}")
+                    dist = f" ~{xdist}m" if xtype == "w" and xdist else ""
+                    print(f"  -> board  [{rname[route]}]{tags.get(xtype, '')}{dist}  at {nm}")
                 elif kind == "ride":
                     print(f"       ...  {nm}")
             print(f"\nARRIVE at {stop_name[path[-1][1]]}\n")
@@ -333,8 +335,11 @@ def _selftest():
     assert len(routes) >= 1, "A->C via walk xfer not found"
     tr, st, path = routes[0]
     assert tr == 1, ("transfers", tr)
-    takes = [(k, ty) for (k, s, r, ty) in path if k == "take"]
+    takes = [(k, ty) for (k, s, r, ty, xd) in path if k == "take"]
     assert takes and takes[-1][1] == "w", ("walk type missing", takes)
+    # verify distance in path
+    walk_take = [(k, s, r, ty, xd) for (k, s, r, ty, xd) in path if k == "take" and ty == "w"]
+    assert walk_take and walk_take[0][4] == 120, ("walk distance missing", walk_take)
     print("xfer selftest ok")
 
     # weighted: long 0-transfer ride (13 halte) must lose to short 1-transfer (2 halte).

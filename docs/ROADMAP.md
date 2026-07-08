@@ -95,6 +95,28 @@ v1.5.0 + v1.5.1 (hotfix) SHIPPED + LIVE (riwayat lengkap di [`CHANGELOG.md`](CHA
 
 ---
 
+## v1.6 — Transfer 3-jenis UI (jarak jalan kaki) — SHIPPED 2026-07-08
+
+v1.6.0 SHIPPED + LIVE (riwayat lengkap di [`CHANGELOG.md`](CHANGELOG.md)).
+
+### Added (v1.6)
+- **Jarak jalan kaki di UI**: Transfer tipe "w" (walk) menampilkan perkiraan jarak ("🚶 Jalan kaki ~72 m").
+- **Distance flow end-to-end**: `xfer[N]` → `router.js` `path[].xdist` → `legs.js` `leg.xdist` → `transferBlock()` UI.
+  Paritas: `route.py` juga pass `xdist` (5-tuple path).
+
+### Fixed (v1.6)
+- `transferBlock()` dirapikan — tipe "s" eksplisit ("↔️ Pindah peron"), "o" ("🔗 halte terhubung"),
+  "w" ("🚶 Jalan kaki ~N m"), fallback non-BRT ("↔️ Lanjut naik…").
+- `legs.js` `pathToLegs()` kini pass `xdist` (sebelumnya drop).
+- `route.py` path tuple 4 → 5 elemen (`xtype` + `xdist`).
+
+### Notes
+- Data (`build-data.py`) TIDAK berubah — field `xfer` sudah punya `dist` sejak v1.1. v1.6 cuma
+  mem-_surface_ distance yang sudah ada ke UI.
+- SW cache di-bump `jt-v8`.
+
+---
+
 ## Tuning knobs (dunia nyata — jangan hard-freeze)
 - Proximity transfer: **150 m** default. GPS/jarak halte Jakarta padat → coba 100–200 m.
 - Radius "sampai halte" live nav: **50 m** (akurasi GPS HP ~10–30 m).

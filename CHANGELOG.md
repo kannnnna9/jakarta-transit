@@ -3,6 +3,34 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.6.0] - 2026-07-08
+
+Transfer 3-jenis UI: jarak jalan kaki ditampilkan, label per-jenis dirapikan, distance diteruskan dari data.json ke path → legs → UI.
+
+### Added
+
+- **Jarak jalan kaki di UI**: Transfer tipe "w" (walk) kini menampilkan perkiraan jarak
+  ("🚶 Jalan kaki ~72 m ke Karet"). Jarak berasal dari data `xfer` (haversine < 150 m).
+- **Distance flow end-to-end**: `xfer[N] = [[stopIdx, type, dist_m], ...]` →
+  `router.js` pass `xdist` ke `path[].xdist` → `legs.js` `leg.xdist` → `transferBlock()` UI.
+  Paritas: `route.py` juga pass `xdist` (5-tuple path: `("take", stop, route, xtype, xdist)`).
+
+### Fixed
+
+- **web/app.js**: `transferBlock()` dirapikan — tipe "s" eksplisit ("↔️ Pindah peron di…"),
+  tipe "o" ("🔗 Pindah di halte terhubung…"), tipe "w" ("🚶 Jalan kaki ~N m ke…"),
+  fallback "↔️ Lanjut naik…" (non-BRT / unknown).
+- **web/legs.js**: `pathToLegs()` kini pass `xdist` dari path ke leg (sebelumnya drop).
+- **web/router.js**: `targets` array kini bawa `xdist` dari `xfer` edge (sebelumnya drop).
+- **route.py**: Path tuple naik dari 4 → 5 elemen (`xtype` + `xdist`). Selftest ikut disesuaikan.
+
+### Notes
+
+- Data (`build-data.py`) TIDAK berubah — field `xfer` sudah punya `dist` sejak v1.1.
+  v1.6 cuma mem-_surface_ distance yang sudah ada ke UI.
+- Semua tes hijau (`test_build.py`, `test-router.js`, route.py selftest, legs xdist check).
+- SW cache di-bump `jt-v7` → `jt-v8` (app-shell: router.js, legs.js, app.js).
+
 ## [1.5.1] - 2026-07-07
 
 Hotfix Pareto router — fixed dominated-label pruning yang terlalu agresif sehingga rute 0-transfer tak ditemukan.
@@ -51,6 +79,7 @@ Multi-rute Pareto: 2–3 rute alternatif (minim transfer / minim halte / seimban
 - SW cache di-bump `jt-v7` (app-shell: route selector, tab styles).
 - Semua path relatif — tetap aman di subpath `/jakarta-transit/`.
 
+[1.6.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.6.0
 [1.5.1]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.5.1
 [1.5.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.5.0
 
