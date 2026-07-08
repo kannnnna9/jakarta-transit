@@ -138,9 +138,24 @@ modul murni `web/cost.js`; `route.py` oracle ikut hitung (parity). SW bump `jt-v
 
 ---
 
-## v1.8 — (kandidat) Waktu/tarif jadi opsi Pareto — BELUM DIDISKUSIKAN
-Pertimbangkan angkat waktu &/atau tarif jadi dimensi pencarian (Pareto 3D/4D). Perlu
-diskusi: risiko ledakan opsi + oracle parity. JANGAN implementasi tanpa diskusi arah dulu.
+## v1.8 — Selektor Rute 4-Tujuan — DESIGN 2026-07-08
+
+Spec penuh: [`docs/superpowers/specs/2026-07-08-v1.8-selektor-4-tujuan-design.md`](superpowers/specs/2026-07-08-v1.8-selektor-4-tujuan-design.md).
+Menumpuk di atas v1.7 (butuh `etime`/`fare`); diimplementasi di opencode.
+
+Selektor tab lama (transfer/halte/seimbang) diganti **4 tab grid 2×2**: 💰 Tarif
+terendah · ⏱️ Waktu tercepat · 🚶 Minim jalan-kaki · 🎲 Kejutan (beta).
+
+DECIDED 2026-07-08:
+- **Bukan Pareto multi-dimensi.** Tiap tujuan deterministik = pencarian optimal
+  TERPISAH (Approach 2), pemenang dijamin optimum global. Risiko "ledakan opsi" batal —
+  tak ada enumerasi front 3D/4D.
+- **"Jarak" dibuang** (larut ke waktu). **Transfer** = info kartu, bukan tab.
+- **Tarif** = state diperluas `(stop,route,brtPaid)` biar aditif (rumus §5b v1.7).
+  **Tie-break deterministik wajib** (Python==JS) — titik rawan #1.
+- **Kejutan (beta)** = acak dari kolam Pareto v1.5, UI-only, di luar parity.
+  Upgrade RNG ber-seed di inti = v1.9+ (opsi B, saat diminta).
+- SW bump `jt-v10`, minor → 1.8.0.
 
 ---
 
