@@ -117,6 +117,33 @@ v1.6.0 SHIPPED + LIVE (riwayat lengkap di [`CHANGELOG.md`](CHANGELOG.md)).
 
 ---
 
+## v1.7 — Estimasi waktu tempuh + tarif (tampilan-saja) — DESIGN 2026-07-08
+
+Spec penuh: [`docs/superpowers/specs/2026-07-08-v1.7-waktu-tarif-design.md`](superpowers/specs/2026-07-08-v1.7-waktu-tarif-design.md).
+Diimplementasi di opencode.
+
+Ringkasan tiap rute tampil `… · ~N mnt · RpX` di samping `transfer · halte`.
+
+DECIDED 2026-07-08:
+- **Tampilan-saja** — router inti Pareto 2D `(transfer, halte)` TAK berubah. Waktu &
+  tarif dihitung lalu ditampilkan per rute hasil. (Jadi dimensi Pareto = v1.8, diskusi terpisah.)
+- **Tarif akurat (aturan TJ nyata)** — BRT Rp3.500 flat sekali; transfer dalam-sistem
+  (`s`/`o`) gratis; Mikrotrans (`GR`) Rp0; Royaltrans/Transjabodetabek (`PP/PP2/PP3`)
+  flat per-naik. Transfer `w` (jalan kaki keluar sistem) → tap BRT ulang.
+- **Waktu = ride saja** — selisih `arrival_time` `stop_times.txt` (median per edge,
+  fallback jarak÷kecepatan). TANPA waktu tunggu / menit jalan-kaki di headline.
+
+Data: `build-data.py` tambah `etime` + `fare` ke `data.json`. Hitung per-rute di
+modul murni `web/cost.js`; `route.py` oracle ikut hitung (parity). SW bump `jt-v9`.
+
+---
+
+## v1.8 — (kandidat) Waktu/tarif jadi opsi Pareto — BELUM DIDISKUSIKAN
+Pertimbangkan angkat waktu &/atau tarif jadi dimensi pencarian (Pareto 3D/4D). Perlu
+diskusi: risiko ledakan opsi + oracle parity. JANGAN implementasi tanpa diskusi arah dulu.
+
+---
+
 ## Tuning knobs (dunia nyata — jangan hard-freeze)
 - Proximity transfer: **150 m** default. GPS/jarak halte Jakarta padat → coba 100–200 m.
 - Radius "sampai halte" live nav: **50 m** (akurasi GPS HP ~10–30 m).
