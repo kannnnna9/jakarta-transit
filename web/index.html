@@ -11,7 +11,9 @@
     * { box-sizing:border-box; }
     body { margin:0; font:16px/1.5 system-ui,sans-serif; background:var(--bg); color:#111;
            padding:16px; max-width:640px; margin-inline:auto; }
-    h1 { font-size:1.25rem; margin:.2rem 0 1rem; }
+    h1 { font-size:1.25rem; margin:.2rem 0 1rem; display:flex; align-items:center; gap:.45rem; }
+    .version { font-size:.72rem; color:var(--muted); border:1px solid var(--line);
+               border-radius:6px; padding:.05rem .35rem; font-weight:600; }
     label { display:block; font-size:.85rem; color:var(--muted); margin:.6rem 0 .2rem; }
     input, button { width:100%; padding:.7rem .8rem; font-size:1rem; border-radius:10px;
                     border:1px solid var(--line); background:var(--card); }
@@ -42,14 +44,14 @@
                    font-weight:600; margin-top:.6rem; }
      .hint { display:block; color:var(--muted); font-size:.8rem; margin-top:.4rem; min-height:1.1rem; }
      .route-selector { border-radius:8px; padding:.5rem 0; }
-     .route-tabs { display:flex; gap:.25rem; flex-wrap:wrap; }
-     .route-tabs button { flex:1 1 auto; min-width:90px; font-size:.85rem; padding:.4rem;
+     .route-tabs { display:grid; grid-template-columns:1fr 1fr; gap:.35rem; }
+     .route-tabs button { min-width:0; font-size:.85rem; padding:.45rem .35rem; margin-top:0;
                           background:var(--card); color:var(--muted); border:1px solid var(--line); }
      .route-tabs button.active { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:700; }
    </style>
 </head>
 <body>
-  <h1>Jakarta Transit</h1>
+  <h1>Jakarta Transit <span class="version" id="app-version"></span></h1>
   <label for="from">Naik dari halte</label>
   <input id="from" list="haltes" autocomplete="off" placeholder="cari halte…" />
   <label for="to">Turun di halte</label>

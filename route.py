@@ -27,6 +27,8 @@ WEIGHT = 8    # biaya 1 transfer = WEIGHT halte; transfer dipilih hanya kalau he
 BUS_SPEED_MS = 6
 BRT_FARES = {"FP", "FP2"}
 PREMIUM_FARES = {"PP", "PP2", "PP3"}
+MAX_GOAL_TRANSFERS = 6  # ponytail: guard transfer 0-detik; naikkan kalau rute nyata butuh >6 transfer.
+MAX_PARETO_STATES = 100000  # ponytail: CLI oracle guard; JS app remains primary runtime.
 
 
 def _num(s):
@@ -240,7 +242,9 @@ def find(origin, dest, data, pareto_limit=3):
     # Collect all solutions that reach destination
     solutions = []
     
-    while pq and len(solutions) < pareto_limit * 10:  # cap explores to avoid explosion
+    seen_states = 0
+    while pq and len(solutions) < pareto_limit * 10 and seen_states < MAX_PARETO_STATES:
+        seen_states += 1
         tr, st, sq, stop, route, label = heapq.heappop(pq)
         _, _, _, path = label
         
@@ -336,6 +340,97 @@ def fmt_minutes(secs):
     return (secs + 30) // 60
 
 
+def _edge_secs(etime, route, a, b):
+    return etime.get(route, {}).get(a, {}).get(b, 0)
+
+
+def _fare_after_take(fare_table, route, xtype, brt_paid):
+    if xtype == "w":
+        brt_paid = False
+    price, klass = fare_table.get(route, (0, "?"))
+    if klass in BRT_FARES:
+        if not brt_paid:
+            return price, True
+        return 0, True
+    if klass in PREMIUM_FARES:
+        return price, brt_paid
+    return 0, brt_paid
+
+
+def _dominates_goal(a, b):
+    return a[0] <= b[0] and a[1] <= b[1] and a[2] <= b[2]
+
+
+def find_goal(origin, dest, data, goal):
+    stop_name, name_stops, _rname, ride, routes_at = data[:5]
+    xfer = data[5] if len(data) > 5 else {}
+    etime = data[-2] if len(data) > 6 else {}
+    fare_table = data[-1] if len(data) > 7 else {}
+    o, d = origin.lower(), dest.lower()
+    origins = sorted(s for s, n in stop_name.items() if o in n.lower())
+    dests = {s for s, n in stop_name.items() if d in n.lower()}
+    if not origins or not dests:
+        return None
+
+    seq = count()
+    pq = []
+    for s in origins:
+        path = [("board", s, None, None, None)]
+        heapq.heappush(pq, (0, 0, 0, next(seq), s, None, False, path))
+
+    best = defaultdict(list)
+    seen = 0
+    while pq and seen < 500000:
+        seen += 1
+        cost, tr, st, _sq, stop, route, brt_paid, path = heapq.heappop(pq)
+        key = (stop, route, brt_paid) if goal == "fare" else (stop, route)
+        if any(_dominates_goal(old, (cost, tr, st)) for old in best[key]):
+            continue
+        best[key].append((cost, tr, st))
+
+        if stop in dests:
+            return tr, st, path, cost
+
+        if route is not None:
+            for nxt in sorted(ride[route].get(stop, ())):
+                add = _edge_secs(etime, route, stop, nxt) if goal == "time" else 0
+                npath = path + [("ride", nxt, route, None, None)]
+                nsq = next(seq)
+                heapq.heappush(pq, (cost + add, tr, st + 1, nsq, nxt, route, brt_paid, npath))
+
+        targets = [(s2, "s", 0) for s2 in name_stops[stop_name[stop]]]
+        targets += list(xfer.get(stop, ()))
+        targets.sort(key=lambda x: (x[0], x[1], x[2] or 0))
+        for s2, xtype, xdist in targets:
+            for r2 in sorted(routes_at[s2]):
+                if r2 == route:
+                    continue
+                add, paid = 0, brt_paid
+                if goal == "fare":
+                    add, paid = _fare_after_take(fare_table, r2, xtype, brt_paid)
+                elif goal == "walk" and xtype == "w":
+                    add = xdist or 0
+                ntr = tr if route is None else tr + 1
+                if ntr > MAX_GOAL_TRANSFERS:
+                    continue
+                npath = path + [("take", s2, r2, xtype, xdist)]
+                nsq = next(seq)
+                heapq.heappush(pq, (cost + add, ntr, st, nsq, s2, r2, paid, npath))
+    return None
+
+
+def find_goals(origin, dest, data):
+    return {
+        "fare": find_goal(origin, dest, data, "fare"),
+        "time": find_goal(origin, dest, data, "time"),
+        "walk": find_goal(origin, dest, data, "walk"),
+    }
+
+
+def _walk_m(path):
+    return sum((xdist or 0) for kind, _stop, _route, xtype, xdist in path if kind == "take" and xtype == "w")
+
+
 def render(res, data):
     stop_name, _, rname, *_, etime, fare_table = data
     if not res:
@@ -366,6 +461,18 @@ if __name__ == "__main__":
     if not routes:
         print("No route found.")
     else:
+        goals = find_goals(sys.argv[1], sys.argv[2], data)
+        print("Goal winners:\n")
+        labels = (("fare", "Tarif terendah"), ("time", "Waktu tercepat"), ("walk", "Minim jalan-kaki"))
+        for key, label in labels:
+            goal = goals[key]
+            if not goal:
+                continue
+            tr, st, path, score = goal
+            secs, rupiah = route_cost(path, data[-2], data[-1])
+            extra = fmt_fare(score) if key == "fare" else (f"~{fmt_minutes(score)} min" if key == "time" else f"{score} m jalan")
+            print(f"- {label}: {tr} transfer(s), {st} stop(s), ~{fmt_minutes(secs)} min, {fmt_fare(rupiah)}, {_walk_m(path)} m jalan [{extra}]")
+        print()
         print(f"Found {len(routes)} Pareto-optimal route(s):\n")
         for i, (tr, st, path) in enumerate(routes, 1):
             print(f"--- Option {i} ---")

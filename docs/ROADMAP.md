@@ -140,10 +140,10 @@ Tes: `test_build.py`, `test-router.js`, `test-legs.js`, `test-suggest.js`,
 
 ---
 
-## v1.8 — Selektor Rute 4-Tujuan — DESIGN 2026-07-08
+## v1.8 — Selektor Rute 4-Tujuan — SHIPPED 2026-07-09
 
 Spec penuh: [`docs/superpowers/specs/2026-07-08-v1.8-selektor-4-tujuan-design.md`](superpowers/specs/2026-07-08-v1.8-selektor-4-tujuan-design.md).
-Menumpuk di atas v1.7 (butuh `etime`/`fare`); diimplementasi di opencode.
+v1.8.0 SHIPPED (riwayat lengkap di [`CHANGELOG.md`](CHANGELOG.md)).
 
 Selektor tab lama (transfer/halte/seimbang) diganti **4 tab grid 2×2**: 💰 Tarif
 terendah · ⏱️ Waktu tercepat · 🚶 Minim jalan-kaki · 🎲 Kejutan (beta).
@@ -159,9 +159,25 @@ DECIDED 2026-07-08:
   Upgrade RNG ber-seed di inti = v1.9+ (opsi B, saat diminta).
 - SW bump `jt-v10`, minor → 1.8.0.
 
+### Added (v1.8)
+- `web/router.js` menambahkan `findGoalRoutes()` untuk pemenang tarif/waktu/jalan-kaki.
+- `route.py` menambahkan `find_goals()` dan output CLI "Goal winners" untuk oracle manual.
+- UI selector 2×2 menampilkan ringkasan `~N mnt · RpX · N transfer · 🚶Nm`.
+- Badge header menampilkan `v1.8.0`; service worker register pakai cache `jt-v10`.
+- Guard dunia nyata: pencarian goal dibatasi maksimal 6 transfer; `route.py` Pareto CLI punya cap state agar tidak menggantung.
+
+### Header versi (acuan rilis) — DECIDED 2026-07-09
+Badge versi kecil di samping judul `<h1>Jakarta Transit</h1>` → tampil `Jakarta Transit v1.8.0`
+(SemVer penuh, patch ikut kelihatan — selaras kebiasaan CHANGELOG) biar tiap update langsung
+kelihatan di layar. **Satu sumber kebenaran**: konstanta `APP_VERSION` di `app.js` mengisi badge
+DAN nama cache SW (`jt-v…`) — ganti 1 tempat tiap rilis, tak dobel-tulis. Tampilan-saja, tak
+sentuh router/data.
+`// ponytail: 1 konstanta versi; kalau badge & cache pisah, gampang lupa sinkron.`
+
 ---
 
 ## Tuning knobs (dunia nyata — jangan hard-freeze)
 - Proximity transfer: **150 m** default. GPS/jarak halte Jakarta padat → coba 100–200 m.
 - Radius "sampai halte" live nav: **50 m** (akurasi GPS HP ~10–30 m).
 - Penalti cost jalan kaki: kalibrasi setelah lihat rute nyata (mis. 1 transfer walk ≈ N halte).
+- v1.9+: kalau Kejutan perlu parity/reproducible, pindahkan RNG ber-seed ke inti router.

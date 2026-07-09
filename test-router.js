@@ -3,7 +3,7 @@
  const assert = require("assert");
  const path = require("path");
  const fs = require("fs");
- const { buildIndex, findRoute } = require("./web/router.js");
+ const { buildIndex, findRoute, findGoalRoutes } = require("./web/router.js");
  const { routeCost, fmtFare } = require("./web/cost.js");
 
  // --- 1. Selftest feed mini (single route) ---
@@ -159,5 +159,73 @@
  assert.strictEqual(fmtFare(0), "Gratis");
  assert.strictEqual(fmtFare(3500), "Rp3.500");
  console.log("cost ok");
+
+ // --- 5. v1.8 goal routes: cheapest/fastest/least-walk + deterministic tie-break ---
+ assert.strictEqual(typeof findGoalRoutes, "function", "router must export findGoalRoutes");
+ const goalMini = {
+   stops: ["A", "D", "C", "E", "E"],
+   routes: ["PP", "BRT", "BRT2", "BRT3"],
+   edges: {
+     "0": { "0": [2] },             // fastest but expensive
+     "1": { "0": [1], "1": [2] },   // cheapest tie winner: fewer transfers
+     "2": { "0": [3] },
+     "3": { "4": [2] },
+   },
+   etime: {
+     "0": { "0": { "2": 60 } },
+     "1": { "0": { "1": 150 }, "1": { "2": 150 } },
+     "2": { "0": { "3": 50 } },
+     "3": { "4": { "2": 50 } },
+   },
+   fare: [[20000, "PP"], [3500, "FP"], [3500, "FP"], [3500, "FP2"]],
+ };
+ const goals = findGoalRoutes(goalMini, "A", "C", buildTestIndex(goalMini));
+ assert.strictEqual(goals.fare.path.find(p => p.kind === "take").route, 1, "cheapest avoids PP and tie-breaks to fewer transfers");
+ assert.strictEqual(routeCost(goals.fare.path, goalMini).fare, 3500, "cheapest fare is BRT flat fare");
+ assert.strictEqual(goals.time.path.find(p => p.kind === "take").route, 0, "fastest chooses PP direct");
+ assert.strictEqual(routeCost(goals.time.path, goalMini).secs, 60, "fastest minimizes etime");
+
+ const walkMini = {
+   stops: ["A", "D", "B", "C", "X", "Y"],
+   routes: ["R1", "R2", "R3"],
+   edges: {
+     "0": { "0": [1] },
+     "1": { "2": [3] },
+     "2": { "0": [4], "4": [5], "5": [3] },
+   },
+   xfer: { "1": [[2, "w", 200]], "2": [[1, "w", 200]] },
+   etime: {},
+   fare: [[3500, "FP"], [3500, "FP"], [3500, "FP"]],
+ };
+ const walkGoal = findGoalRoutes(walkMini, "A", "C", buildTestIndex(walkMini)).walk;
+ assert.strictEqual(walkGoal.path.find(p => p.kind === "take").route, 2, "least-walk chooses zero-walk route");
+ assert.strictEqual(walkGoal.goalCost, 0, "least-walk primary cost is total walking meters");
+
+ const tieMini = {
+   stops: ["A", "B", "C", "D"],
+   routes: ["R1", "R2"],
+   edges: { "0": { "0": [1], "1": [2] }, "1": { "0": [3], "3": [2] } },
+   etime: {
+     "0": { "0": { "1": 10 }, "1": { "2": 10 } },
+     "1": { "0": { "3": 10 }, "3": { "2": 10 } },
+   },
+   fare: [[3500, "FP"], [3500, "FP"]],
+ };
+ assert.deepStrictEqual(
+   findGoalRoutes(tieMini, "A", "C", buildTestIndex(tieMini)).time.path.map(p => p.stop),
+   [0, 0, 1, 2],
+   "final tie-break is lexicographic stop_id path"
+ );
+
+ const appJs = fs.readFileSync(path.join(__dirname, "web", "app.js"), "utf8");
+ const indexHtml = fs.readFileSync(path.join(__dirname, "web", "index.html"), "utf8");
+ const swJs = fs.readFileSync(path.join(__dirname, "web", "sw.js"), "utf8");
+ assert.ok(appJs.includes('APP_VERSION = "1.8.0"'), "app.js must define APP_VERSION 1.8.0");
+ for (const label of ["Tarif terendah", "Waktu tercepat", "Minim jalan-kaki", "Kejutan (beta)"]) {
+   assert.ok(appJs.includes(label), "app.js must render " + label);
+ }
+ assert.ok(indexHtml.includes('id="app-version"'), "index.html must expose version badge");
+ assert.ok(swJs.includes("jt-v10"), "service worker cache must bump to jt-v10");
+ console.log("v1.8 goals ok");
 
  console.log("test-router ok");

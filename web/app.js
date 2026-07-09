@@ -1,7 +1,9 @@
 "use strict";
 // DOM/render. Router murni ada di Router (router.js). File ini TIDAK berisi logika rute.
 (function () {
-  const { buildIndex, findRoute } = window.Router;
+  const APP_VERSION = "1.8.0";
+  const CACHE_NAME = "jt-v10";
+  const { buildIndex, findGoalRoutes } = window.Router;
   const { suggest } = window.Suggest;
   const { pathToLegs } = window.Legs;
   const { snap } = window.LiveNav;
@@ -11,6 +13,8 @@
   let here = null; // {lat,lon} once user shares location
   const RADIUS_M = 50; // ambang "sampai halte" — knob dunia nyata (GPS HP ~10-30 m)
   let nav = { watchId: null, cur: -1, stops: [] }; // stops: [{idx, el}] urut jalur
+
+  $("app-version").textContent = "v" + APP_VERSION;
 
   // Rebuild the datalist: deduped names, alphabetical or (with `here`) nearest-first.
   function fillDatalist() {
@@ -62,27 +66,18 @@
      return e;
    };
 
-   // Render route selector tabs untuk multi-rute Pareto
-   let routeOptions = null; // Store all Pareto routes
+   // Render route selector tabs untuk tujuan v1.8
+   let routeOptions = null;
    let selectedRouteIdx = 0;
    
-   function routeLabel(r, i, total) {
-      if (total <= 2) return i === 0 ? "Minim transfer" : "Minim halte";
-      if (i === 0) return "Minim transfer";
-      if (i === total - 1) return "Minim halte";
-      return "Seimbang";
-    }
-
     function routeSelector(ops, selected) {
       const wrap = li("route-selector", "");
       if (ops.length <= 1) return wrap;
       const tabs = document.createElement("div");
       tabs.className = "route-tabs";
-      ops.forEach((r, i) => {
+      ops.forEach((op, i) => {
         const tab = document.createElement("button");
-        const label = routeLabel(r, i, ops.length);
-        const dot = i === 0 ? "🟢" : i === ops.length - 1 ? "⚪" : "🟡";
-        tab.textContent = dot + " " + label;
+        tab.textContent = op.label;
         if (i === selected) tab.className = "active";
         tab.onclick = () => switchRoute(i);
         tabs.appendChild(tab);
@@ -93,13 +88,42 @@
 
    function switchRoute(i) {
      selectedRouteIdx = i;
-     const ol = $("result"); ol.innerHTML = "";
-     // Re-render route selector (active tab)
+     nav.stops = [];
+     const ol = $("result");
+     ol.innerHTML = "";
      const selector = routeSelector(routeOptions, i);
-     const first = ol.firstChild;
-     ol.insertBefore(selector, first);
-     // Re-render selected route
-     const res = routeOptions[i];
+     ol.appendChild(selector);
+     renderRoute(routeOptions[i].route, ol);
+     $("summary").textContent = summaryText(routeOptions[i].route);
+   }
+
+  function routeWalkMeters(path) {
+    return path.reduce((n, step) => n + (step.kind === "take" && step.xtype === "w" ? (step.xdist || 0) : 0), 0);
+  }
+
+  function summaryText(res) {
+    const c = routeCost(res.path, data);
+    return `~${Math.round(c.secs / 60)} mnt · ${fmtFare(c.fare)} · ${res.transfers} transfer · 🚶${routeWalkMeters(res.path)}m`;
+  }
+
+  function samePath(a, b) {
+    return a && b && a.path.map((p) => p.kind + ":" + p.stop + ":" + p.route).join("|") ===
+      b.path.map((p) => p.kind + ":" + p.stop + ":" + p.route).join("|");
+  }
+
+  function goalOptions(goals) {
+    const ops = [
+      { label: "💰 Tarif terendah", route: goals.fare },
+      { label: "⏱️ Waktu tercepat", route: goals.time },
+      { label: "🚶 Minim jalan-kaki", route: goals.walk },
+    ].filter((op) => op.route);
+    const winners = ops.map((op) => op.route);
+    const pool = (goals.pareto || []).filter((r) => !winners.some((w) => samePath(w, r)));
+    if (pool.length) ops.push({ label: "🎲 Kejutan (beta)", route: pool[Math.floor(Math.random() * pool.length)] });
+    return ops;
+  }
+
+  function renderRoute(res, ol) {
      const legs = pathToLegs(res.path);
      const track = (idx, el) => {
        const last = nav.stops[nav.stops.length - 1];
@@ -121,14 +145,6 @@
      const endEl = stopLi("end", "🏁 Sampai: ", legs[legs.length - 1].alight);
      ol.appendChild(endEl);
      nav.stops[nav.stops.length - 1].el = endEl;
-     // Update summary for selected route
-      const label = routeLabel(res, i, routeOptions.length);
-      $("summary").textContent = label + ": " + summaryText(res);
-   }
-
-  function summaryText(res) {
-    const c = routeCost(res.path, data);
-    return `${res.transfers} transfer · ${res.stops} halte · ~${Math.round(c.secs / 60)} mnt · ${fmtFare(c.fare)}`;
   }
 
   // Baris halte dgn badge nomor BRT (peta integrasi) sebelum nama, contoh "1-20 Kota".
@@ -198,23 +214,15 @@
      const ol = $("result"); ol.innerHTML = "";
      if (!res) { $("summary").textContent = "Rute tidak ditemukan."; return; }
      
-     // Handle both single route (object) and Pareto routes (array)
-     routeOptions = Array.isArray(res) ? res : [res];
+     routeOptions = goalOptions(res);
      selectedRouteIdx = 0;
-     
-     // Show route selector if multiple options
-     if (routeOptions.length > 1) {
-       const selector = routeSelector(routeOptions, selectedRouteIdx);
-       ol.appendChild(selector);
-       $("summary").textContent = "Ditemukan " + routeOptions.length + " opsi rute Pareto-optimal:";
-     } else {
-       $("summary").textContent = summaryText(routeOptions[0]);
-     }
-     
-     // Render selected route
-     const selected = routeOptions[selectedRouteIdx];
+
+     if (!routeOptions.length) { $("summary").textContent = "Rute tidak ditemukan."; return; }
+     if (routeOptions.length > 1) ol.appendChild(routeSelector(routeOptions, selectedRouteIdx));
+     const selected = routeOptions[selectedRouteIdx].route;
      const legs = pathToLegs(selected.path);
      if (!legs.length) { $("summary").textContent = "Rute tidak ditemukan."; return; }
+     $("summary").textContent = summaryText(selected);
 
      // track: urutan halte jalur buat navigasi live (skip duplikat berurutan)
      const track = (idx, el) => {
@@ -290,11 +298,11 @@
     if (!validNames.has(from)) { $("err").textContent = "Halte asal tidak ditemukan — pilih dari daftar."; return; }
     if (!validNames.has(to)) { $("err").textContent = "Halte tujuan tidak ditemukan — pilih dari daftar."; return; }
     if (from === to) { $("err").textContent = "Asal dan tujuan sama."; return; }
-    try { render(findRoute(data, from, to, index)); }
+    try { render(findGoalRoutes(data, from, to, index)); }
     catch (e) { $("err").textContent = e.message; }
   });
 
   // daftar service worker (offline)
   if ("serviceWorker" in navigator)
-    navigator.serviceWorker.register("sw.js").catch(() => {});
+    navigator.serviceWorker.register("sw.js?cache=" + encodeURIComponent(CACHE_NAME)).catch(() => {});
 })();

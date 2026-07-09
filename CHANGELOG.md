@@ -3,6 +3,30 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.8.0] - 2026-07-09
+
+Selektor rute 4-tujuan: tarif terendah, waktu tercepat, minim jalan-kaki, dan Kejutan (beta).
+
+### Added
+
+- **Pencarian optimal per tujuan**: `web/router.js` menambahkan `findGoalRoutes()` dengan tiga Dijkstra deterministik terpisah untuk tarif, waktu, dan meter jalan kaki.
+- **Tarif sebagai stateful search**: pencarian tarif membawa state `brtPaid` supaya BRT sekali bayar, transfer `s`/`o` gratis, `w` reset sesi, Mikrotrans gratis, dan PP/PP2/PP3 per-naik tetap akurat.
+- **Selector 2x2 v1.8**: UI mengganti tab Pareto lama dengan `💰 Tarif terendah`, `⏱️ Waktu tercepat`, `🚶 Minim jalan-kaki`, dan `🎲 Kejutan (beta)`.
+- **Badge versi aplikasi**: header menampilkan `v1.8.0`; `app.js` juga mengirim cache name `jt-v10` saat register service worker.
+- **Guard pencarian goal**: batas 6 transfer untuk mencegah ledakan state dari transfer 0-detik; naikkan kalau data nyata membuktikan perlu.
+
+### Changed
+
+- **route.py**: oracle kini punya `find_goals()` dan output CLI menampilkan tiga pemenang deterministik sebelum daftar Pareto lama.
+- **Ringkasan rute**: tiap tab menampilkan metrik gabungan `~N mnt · RpX · N transfer · 🚶Nm`.
+- **web/sw.js**: cache app-shell di-bump ke `jt-v10` dan dibaca dari query register service worker.
+- **route.py**: Pareto CLI diberi cap state supaya oracle manual tidak menggantung pada query berat.
+
+### Notes
+
+- Kejutan tetap UI-only dan acak dari kolam Pareto v1.5; tidak ikut parity deterministic.
+- Data (`web/data.json`) tidak berubah.
+
 ## [1.7.0] - 2026-07-09
 
 Estimasi waktu tempuh + tarif di ringkasan rute. Router Pareto tetap berbasis transfer + halte; waktu dan tarif hanya dihitung untuk ditampilkan.
@@ -101,6 +125,7 @@ Multi-rute Pareto: 2–3 rute alternatif (minim transfer / minim halte / seimban
 - SW cache di-bump `jt-v7` (app-shell: route selector, tab styles).
 - Semua path relatif — tetap aman di subpath `/jakarta-transit/`.
 
+[1.8.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.8.0
 [1.7.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.7.0
 [1.6.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.6.0
 [1.5.1]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.5.1
