@@ -42,6 +42,17 @@ def main():
                 secs = etime[ri][si][str(nx)]
                 assert isinstance(secs, int) and secs > 0, ("bad etime", ri, si, nx, secs)
 
+    # 2b2. dist parallel to edges: per-edge ride distance in integer meters
+    dist = data["dist"]
+    assert dist, "dist missing"
+    for ri, adj in data["edges"].items():
+        assert ri in dist, ("dist route missing", ri)
+        for si, nexts in adj.items():
+            assert si in dist[ri], ("dist stop missing", ri, si)
+            for nx in nexts:
+                meters = dist[ri][si][str(nx)]
+                assert isinstance(meters, int) and meters > 0, ("bad dist", ri, si, nx, meters)
+
     # 2c. fare parallel to routes: [price_int, fare_id]
     fare = data["fare"]
     assert len(fare) == nr, (len(fare), nr)

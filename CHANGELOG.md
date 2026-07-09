@@ -3,6 +3,28 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.9.0] - 2026-07-09
+
+Rute waras + filter layanan.
+
+### Added
+
+- **Origin lock + ride-minimal**: router tidak lagi loncat jalan kaki ke halte tetangga sebelum naik bus pertama, dan leg bus 0-halte dicegah.
+- **Selector v1.9**: tab diganti menjadi `Tarif terendah`, `Paling simpel`, `Jarak terpendek`, dan `Kejutan (beta)`.
+- **Jarak ride**: `build-data.py` menambahkan `dist` meter per edge, paralel dengan `edges`, untuk pencarian jarak terpendek.
+- **Filter layanan**: UI menambahkan checkbox kelas layanan GTFS; saran halte dan router patuh pada filter aktif.
+
+### Changed
+
+- **Estimasi menit kartu** kini memakai ride time + 4 menit per transfer + estimasi jalan kaki, bukan ride-only.
+- **route.py** mirror aturan goal v1.9, origin lock, ride-minimal, `dist`, dan filter kelas layanan opsional.
+- **web/sw.js** cache app-shell di-bump ke `jt-v11`; `APP_VERSION` menjadi `1.9.0`.
+
+### Fixed
+
+- Rute tidak lagi menyarankan naik pertama dari halte berbeda karena transfer jalan kaki awal.
+- Tab “Waktu tercepat” yang mengabaikan waktu transfer/jalan kaki dihapus.
+
 ## [1.8.0] - 2026-07-09
 
 Selektor rute 4-tujuan: tarif terendah, waktu tercepat, minim jalan-kaki, dan Kejutan (beta).
@@ -125,6 +147,7 @@ Multi-rute Pareto: 2–3 rute alternatif (minim transfer / minim halte / seimban
 - SW cache di-bump `jt-v7` (app-shell: route selector, tab styles).
 - Semua path relatif — tetap aman di subpath `/jakarta-transit/`.
 
+[1.9.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.9.0
 [1.8.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.8.0
 [1.7.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.7.0
 [1.6.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.6.0

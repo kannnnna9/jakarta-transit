@@ -176,13 +176,13 @@ sentuh router/data.
 
 ---
 
-## v1.9 — Rute Waras + Filter Layanan — DECIDED 2026-07-09 (belum digarap)
+## v1.9 — Rute Waras + Filter Layanan — SHIPPED 2026-07-09
 
 Spec penuh: [`docs/superpowers/specs/2026-07-09-v1.9-rute-waras-filter-layanan-design.md`](superpowers/specs/2026-07-09-v1.9-rute-waras-filter-layanan-design.md).
 Lahir dari temuan Reza di v1.8 live (naik di halte lain dari pilihan; leg naik-turun
 halte sama; "Waktu tercepat" 6 transfer + 🚶742m gak waras; tarif≈minim-jalan sering seri).
 
-DECIDED:
+DECIDED + shipped:
 - **Origin lock** — sebelum naik bus pertama hanya boleh pindah peron nama-sama;
   jalan kaki/halte-terhubung dilarang KECUALI langsung ke tujuan (rute jalan-kaki-saja).
 - **Ride-minimal** — bus hanya dinaiki kalau ≥1 halte ditempuh; tujuan tercapai via
@@ -196,7 +196,18 @@ DECIDED:
   router, semua leg), default semua ON + 3 guard UX.
 - **Parity route.py** penuh; cost & tie-break integer-only; tie-break seragam
   `(cost, jalan_m, transfer, halte, seq)`.
-- SW bump `jt-v11`, minor → 1.9.0. Implementasi di codex.
+- SW bump `jt-v11`, minor → 1.9.0.
+
+### Added (v1.9)
+- `dist` meter per edge ride di `data.json`.
+- Router goal baru: tarif terendah, paling simpel, jarak terpendek.
+- Filter layanan 8 kelas GTFS di UI, diterapkan ke saran halte dan router.
+- Origin lock + ride-minimal di `web/router.js` dan `route.py`.
+
+### Changed (v1.9)
+- Estimasi menit kartu = ride + 4 menit/transfer + jalan kaki.
+- Tab "Waktu tercepat" dan "Minim jalan-kaki" diganti "Paling simpel" dan "Jarak terpendek".
+- `APP_VERSION` 1.9.0 dan cache `jt-v11`.
 
 ---
 

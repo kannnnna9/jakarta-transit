@@ -74,7 +74,30 @@
 
   // Cari rute halte-asal -> halte-tujuan (NAMA PERSIS). Pareto optimal: min (transfer, stops).
   // Return list of {transfers, stops, path} sorted by (transfers, stops).
-  function findRoute(data, originName, destName, index, paretoLimit = 3) {
+  function routeAllowed(data, route, allowed) {
+    return !allowed || allowed.has((data.rtype && data.rtype[route]) || "");
+  }
+
+  function edgeDist(data, route, from, to) {
+    const byRoute = data.dist && data.dist[route];
+    const byStop = byRoute && byRoute[from];
+    return (byStop && byStop[to]) || 1;
+  }
+
+  function transferTargets(data, nameStops, stop) {
+    const out = [];
+    for (const s2 of nameStops.get(data.stops[stop]) || []) out.push([s2, "s", 0]);
+    const xl = data.xfer && data.xfer[stop];
+    if (xl) for (const link of xl) out.push([link[0], link[1], link[2] || 0]);
+    out.sort((a, b) => (a[0] - b[0]) || String(a[1]).localeCompare(String(b[1])) || ((a[2] || 0) - (b[2] || 0)));
+    return out;
+  }
+
+  function routeListAt(routesAt, stop, data, allowed) {
+    return Array.from(routesAt[stop] || []).filter((r) => routeAllowed(data, r, allowed)).sort((a, b) => a - b);
+  }
+
+  function findRoute(data, originName, destName, index, paretoLimit = 3, allowedRtypes) {
     const { nameStops, routesAt } = index || buildIndex(data);
     const origins = nameStops.get(originName);
     const dests = new Set(nameStops.get(destName) || []);
@@ -119,6 +142,7 @@
     
     for (const s of origins)
       heapPush({ tr: 0, st: 0, seq: seq++, stop: s, route: null,
+                 ridden: false,
                  path: [{ kind: "board", stop: s, route: null, xtype: null }] });
 
     const best = new Map();
@@ -153,17 +177,23 @@
         const nexts = edges[cur.route] && edges[cur.route][cur.stop];
         if (nexts) for (const nx of nexts) {
           heapPush({ tr: cur.tr, st: cur.st + 1, seq: seq++, stop: nx, route: cur.route,
+                     ridden: true,
                      path: cur.path.concat([{ kind: "ride", stop: nx, route: cur.route, xtype: null }]) });
         }
       }
-      const targets = [];
-      for (const s2 of nameStops.get(stopName[cur.stop])) targets.push([s2, "s", 0]);
-      const xl = data.xfer && data.xfer[cur.stop];
-      if (xl) for (const link of xl) targets.push([link[0], link[1], link[2]]);
-      for (const [s2, xtype, xdist] of targets) {
-        for (const r2 of routesAt[s2]) {
-          if (r2 === cur.route) continue;
-          heapPush({ tr: cur.route === null ? cur.tr : cur.tr + 1, st: cur.st, seq: seq++, stop: s2, route: r2, xtype, xdist,
+      if (cur.route !== null && !cur.ridden) continue;
+      for (const [s2, xtype, xdist] of transferTargets(data, nameStops, cur.stop)) {
+        if (cur.route === null && xtype !== "s" && !dests.has(s2)) continue;
+        const ntr = cur.route === null ? cur.tr : cur.tr + 1;
+        const xstep = { kind: "xfer", stop: s2, route: null, xtype, xdist };
+        if (dests.has(s2) && s2 !== cur.stop) {
+          solutions.push({ transfers: ntr, stops: cur.st, path: cur.path.concat([xstep]) });
+          continue;
+        }
+        for (const r2 of routeListAt(routesAt, s2, data, allowedRtypes)) {
+          if (r2 === cur.route && s2 === cur.stop) continue;
+          heapPush({ tr: ntr, st: cur.st, seq: seq++, stop: s2, route: r2, xtype, xdist,
+                     ridden: false,
                      path: cur.path.concat([{ kind: "take", stop: s2, route: r2, xtype, xdist }]) });
         }
       }
@@ -188,7 +218,7 @@
   const MAX_GOAL_TRANSFERS = 6; // ponytail: guard transfer 0-detik; naikkan kalau rute nyata butuh >6 transfer.
 
   function cmpLabel(a, b) {
-    return (a.cost - b.cost) || (a.tr - b.tr) || (a.st - b.st) || (a.seq - b.seq);
+    return (a.cost - b.cost) || (a.walkM - b.walkM) || (a.tr - b.tr) || (a.st - b.st) || (a.seq - b.seq);
   }
 
   function fareInfo(data, route) {
@@ -241,10 +271,10 @@
   }
 
   function dominated(labels, cur) {
-    return labels.some((x) => x[0] <= cur.cost && x[1] <= cur.tr && x[2] <= cur.st);
+    return labels.some((x) => x[0] <= cur.cost && x[1] <= cur.walkM && x[2] <= cur.tr && x[3] <= cur.st);
   }
 
-  function shortestGoal(data, originName, destName, index, goal) {
+  function shortestGoal(data, originName, destName, index, goal, allowedRtypes) {
     const { nameStops, routesAt } = index || buildIndex(data);
     const origins = nameStops.get(originName);
     const dests = new Set(nameStops.get(destName) || []);
@@ -256,7 +286,7 @@
     let seq = 0, seen = 0;
     for (const s of origins) {
       heapPush(heap, {
-        cost: 0, tr: 0, st: 0, seq: seq++, stop: s, route: null, brtPaid: false,
+        cost: 0, walkM: 0, tr: 0, st: 0, seq: seq++, stop: s, route: null, brtPaid: false, ridden: false,
         path: [{ kind: "board", stop: s, route: null, xtype: null }],
       });
     }
@@ -266,7 +296,7 @@
       const key = cur.stop + "," + cur.route + (goal === "fare" ? "," + (cur.brtPaid ? 1 : 0) : "");
       const old = best.get(key) || [];
       if (dominated(old, cur)) continue;
-      old.push([cur.cost, cur.tr, cur.st]);
+      old.push([cur.cost, cur.walkM, cur.tr, cur.st]);
       best.set(key, old);
 
       if (dests.has(cur.stop)) return { transfers: cur.tr, stops: cur.st, path: cur.path, goalCost: cur.cost };
@@ -274,31 +304,41 @@
       if (cur.route !== null) {
         const nexts = data.edges[cur.route] && data.edges[cur.route][cur.stop];
         if (nexts) for (const nx of nexts) {
-          const add = goal === "time" ? edgeSecs(data, cur.route, cur.stop, nx) : 0;
+          const add = goal === "dist" ? edgeDist(data, cur.route, cur.stop, nx) : (goal === "simple" ? 1 : 0);
           heapPush(heap, {
-            cost: cur.cost + add, tr: cur.tr, st: cur.st + 1, seq: seq++, stop: nx, route: cur.route, brtPaid: cur.brtPaid,
+            cost: cur.cost + add, walkM: cur.walkM, tr: cur.tr, st: cur.st + 1, seq: seq++,
+            stop: nx, route: cur.route, brtPaid: cur.brtPaid, ridden: true,
             path: cur.path.concat([{ kind: "ride", stop: nx, route: cur.route, xtype: null }]),
           });
         }
       }
 
-      const targets = [];
-      for (const s2 of nameStops.get(data.stops[cur.stop])) targets.push([s2, "s", 0]);
-      const xl = data.xfer && data.xfer[cur.stop];
-      if (xl) for (const link of xl) targets.push([link[0], link[1], link[2]]);
-      targets.sort((a, b) => (a[0] - b[0]) || String(a[1]).localeCompare(String(b[1])) || ((a[2] || 0) - (b[2] || 0)));
-      for (const [s2, xtype, xdist] of targets) {
-        const routeList = Array.from(routesAt[s2]).sort((a, b) => a - b);
+      if (cur.route !== null && !cur.ridden) continue;
+      for (const [s2, xtype, xdist] of transferTargets(data, nameStops, cur.stop)) {
+        if (cur.route === null && xtype !== "s" && !dests.has(s2)) continue;
+        const ntr = cur.route === null ? cur.tr : cur.tr + 1;
+        const walkAdd = xtype === "w" ? (xdist || 0) : 0;
+        const xcost = goal === "dist" ? walkAdd : 0;
+        const xstep = { kind: "xfer", stop: s2, route: null, xtype, xdist };
+        if (dests.has(s2) && s2 !== cur.stop) {
+          heapPush(heap, {
+            cost: cur.cost + xcost, walkM: cur.walkM + walkAdd, tr: ntr, st: cur.st, seq: seq++,
+            stop: s2, route: null, brtPaid: cur.brtPaid, ridden: false,
+            path: cur.path.concat([xstep]),
+          });
+          continue;
+        }
+        const routeList = routeListAt(routesAt, s2, data, allowedRtypes);
         for (const r2 of routeList) {
-          if (r2 === cur.route) continue;
+          if (r2 === cur.route && s2 === cur.stop) continue;
           let add = 0, brtPaid = cur.brtPaid;
           if (goal === "fare") [add, brtPaid] = fareAfterTake(data, r2, xtype, cur.brtPaid);
-          else if (goal === "walk") add = xtype === "w" ? (xdist || 0) : 0;
-          const ntr = cur.route === null ? cur.tr : cur.tr + 1;
+          else if (goal === "simple") add = cur.route === null ? 0 : WEIGHT;
+          else if (goal === "dist") add = walkAdd;
           if (ntr > MAX_GOAL_TRANSFERS) continue;
           heapPush(heap, {
-            cost: cur.cost + add, tr: ntr, st: cur.st, seq: seq++,
-            stop: s2, route: r2, brtPaid,
+            cost: cur.cost + add, walkM: cur.walkM + walkAdd, tr: ntr, st: cur.st, seq: seq++,
+            stop: s2, route: r2, brtPaid, ridden: false,
             path: cur.path.concat([{ kind: "take", stop: s2, route: r2, xtype, xdist }]),
           });
         }
@@ -307,12 +347,12 @@
     return null;
   }
 
-  function findGoalRoutes(data, originName, destName, index) {
+  function findGoalRoutes(data, originName, destName, index, allowedRtypes) {
     return {
-      fare: shortestGoal(data, originName, destName, index, "fare"),
-      time: shortestGoal(data, originName, destName, index, "time"),
-      walk: shortestGoal(data, originName, destName, index, "walk"),
-      pareto: findRoute(data, originName, destName, index, 3),
+      fare: shortestGoal(data, originName, destName, index, "fare", allowedRtypes),
+      simple: shortestGoal(data, originName, destName, index, "simple", allowedRtypes),
+      dist: shortestGoal(data, originName, destName, index, "dist", allowedRtypes),
+      pareto: findRoute(data, originName, destName, index, 3, allowedRtypes),
     };
   }
 

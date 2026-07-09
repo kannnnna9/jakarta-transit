@@ -4,13 +4,13 @@ Navigasi rute Transjakarta — **ringan, offline, tanpa peta**. PWA statis, depl
 
 **LIVE:** https://kannnnna9.github.io/jakarta-transit/
 
-Pilih halte asal + tujuan (autocomplete nama halte), lalu pilih rute berdasarkan tarif terendah, waktu tercepat, minim jalan-kaki, atau Kejutan (beta). Data GTFS Transjakarta, router Dijkstra murni jalan di browser. Bisa di-install jadi app (PWA / APK via PWABuilder).
+Pilih halte asal + tujuan (autocomplete nama halte), lalu pilih rute berdasarkan tarif terendah, paling simpel, jarak terpendek, atau Kejutan (beta). Data GTFS Transjakarta, router Dijkstra murni jalan di browser. Bisa di-install jadi app (PWA / APK via PWABuilder).
 
 ## Status
 
-- **v1.8.0** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). Selektor rute 4-tujuan: tarif, waktu, minim jalan-kaki, Kejutan (beta).
+- **v1.9.0** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). Rute waras, filter layanan, selector tarif/simpel/jarak/Kejutan.
 - Sisa: regenerate APK di PWABuilder saat mau (ikon sekarang placeholder "JT").
-- Roadmap berikutnya (testing/tuning dunia nyata + opsi v1.9 Kejutan ber-seed): [`docs/ROADMAP.md`](docs/ROADMAP.md).
+- Roadmap berikutnya (testing/tuning dunia nyata + opsi Kejutan ber-seed): [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Struktur
 

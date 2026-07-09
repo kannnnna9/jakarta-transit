@@ -224,6 +224,19 @@ def build_etime(trip_route, trip_seq, route_idx, stop_idx, stop_lat, stop_lon, e
     return out
 
 
+def build_dist(edges, stop_lat, stop_lon):
+    out = {}
+    for ri, adj in edges.items():
+        out[str(ri)] = {}
+        for si, nexts in adj.items():
+            out[str(ri)][str(si)] = {}
+            for nx in nexts:
+                la1, lo1, la2, lo2 = stop_lat[si], stop_lon[si], stop_lat[nx], stop_lon[nx]
+                meters = 1 if None in (la1, lo1, la2, lo2) else int(round(_haversine_m(la1, lo1, la2, lo2)))
+                out[str(ri)][str(si)][str(nx)] = max(1, meters)
+    return out
+
+
 def build_fare(route_idx):
     prices = {}
     for r in rows("fare_attributes.txt"):
@@ -282,11 +295,12 @@ def main():
     xfer = build_xfer(stop_idx, stop_lat, stop_lon)
     snum = build_snum(trip_route, trip_seq, stop_idx, stop_names)
     etime = build_etime(trip_route, trip_seq, route_idx, stop_idx, stop_lat, stop_lon, edges)
+    dist = build_dist(edges, stop_lat, stop_lon)
     fare = build_fare(route_idx)
     data = {
         "stops": stop_names, "routes": route_labels, "edges": edges_out,
         "lat": stop_lat, "lon": stop_lon, "rtype": route_types, "xfer": xfer,
-        "snum": snum, "etime": etime, "fare": fare,
+        "snum": snum, "etime": etime, "dist": dist, "fare": fare,
     }
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)

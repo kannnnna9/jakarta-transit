@@ -1,20 +1,65 @@
 "use strict";
 // DOM/render. Router murni ada di Router (router.js). File ini TIDAK berisi logika rute.
 (function () {
-  const APP_VERSION = "1.8.0";
-  const CACHE_NAME = "jt-v10";
+  const APP_VERSION = "1.9.0";
+  const CACHE_NAME = "jt-v11";
   const { buildIndex, findGoalRoutes } = window.Router;
   const { suggest } = window.Suggest;
   const { pathToLegs } = window.Legs;
   const { snap } = window.LiveNav;
   const { routeCost, fmtFare } = window.Cost;
   const $ = (id) => document.getElementById(id);
-  let data = null, index = null, validNames = null;
+  let data = null, index = null, validNames = null, serviceStops = null;
   let here = null; // {lat,lon} once user shares location
   const RADIUS_M = 50; // ambang "sampai halte" — knob dunia nyata (GPS HP ~10-30 m)
   let nav = { watchId: null, cur: -1, stops: [] }; // stops: [{idx, el}] urut jalur
 
   $("app-version").textContent = "v" + APP_VERSION;
+
+  function activeRtypes() {
+    return new Set(Array.from(document.querySelectorAll("#service-filter input:checked")).map((el) => el.value));
+  }
+
+  function rebuildServiceStops() {
+    const allowed = activeRtypes();
+    serviceStops = new Set();
+    for (const ri in data.edges) {
+      if (!allowed.has((data.rtype && data.rtype[ri]) || "")) continue;
+      for (const si in data.edges[ri]) {
+        serviceStops.add(Number(si));
+        for (const nx of data.edges[ri][si]) serviceStops.add(nx);
+      }
+    }
+  }
+
+  function filterLabel() {
+    const all = new Set(data.rtype.filter(Boolean));
+    const on = activeRtypes();
+    return on.size === all.size ? "" : "Filter: " + Array.from(on).join(", ");
+  }
+
+  function buildFilters() {
+    const wrap = $("service-filter");
+    wrap.innerHTML = "";
+    const saved = JSON.parse(localStorage.getItem("jt-service-filter") || "null");
+    const types = Array.from(new Set(data.rtype.filter(Boolean))).sort();
+    for (const rt of types) {
+      const lab = document.createElement("label");
+      const cb = document.createElement("input");
+      cb.type = "checkbox"; cb.value = rt; cb.checked = !saved || saved.includes(rt);
+      cb.onchange = () => {
+        const checked = Array.from(wrap.querySelectorAll("input:checked")).map((el) => el.value);
+        if (!checked.length) { cb.checked = true; return; }
+        localStorage.setItem("jt-service-filter", JSON.stringify(checked));
+        rebuildServiceStops();
+        fillDatalist();
+      };
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(rt));
+      wrap.appendChild(lab);
+    }
+    rebuildServiceStops();
+  }
 
   // Rebuild the datalist: deduped names, alphabetical or (with `here`) nearest-first.
   function fillDatalist() {
@@ -22,6 +67,8 @@
     const coords = { lat: data.lat, lon: data.lon };
     const frag = document.createDocumentFragment();
     for (const it of suggest(data.stops, coords, "", 9999, here)) {
+      const ids = index.nameStops.get(it.name) || [];
+      if (serviceStops && !ids.some((id) => serviceStops.has(id))) continue;
       const o = document.createElement("option");
       o.value = it.name;
       frag.appendChild(o);
@@ -35,6 +82,7 @@
       data = d;
       index = buildIndex(d);
       validNames = new Set(d.stops);
+      buildFilters();
       fillDatalist();
     })
     .catch(() => { $("err").textContent = "Gagal memuat data halte."; });
@@ -94,7 +142,7 @@
      const selector = routeSelector(routeOptions, i);
      ol.appendChild(selector);
      renderRoute(routeOptions[i].route, ol);
-     $("summary").textContent = summaryText(routeOptions[i].route);
+     setSummary(routeOptions[i].route);
    }
 
   function routeWalkMeters(path) {
@@ -106,6 +154,12 @@
     return `~${Math.round(c.secs / 60)} mnt · ${fmtFare(c.fare)} · ${res.transfers} transfer · 🚶${routeWalkMeters(res.path)}m`;
   }
 
+  function setSummary(res) {
+    $("summary").textContent = summaryText(res);
+    const flt = filterLabel();
+    if (flt) $("summary").textContent += " · " + flt;
+  }
+
   function samePath(a, b) {
     return a && b && a.path.map((p) => p.kind + ":" + p.stop + ":" + p.route).join("|") ===
       b.path.map((p) => p.kind + ":" + p.stop + ":" + p.route).join("|");
@@ -114,8 +168,8 @@
   function goalOptions(goals) {
     const ops = [
       { label: "💰 Tarif terendah", route: goals.fare },
-      { label: "⏱️ Waktu tercepat", route: goals.time },
-      { label: "🚶 Minim jalan-kaki", route: goals.walk },
+      { label: "🧘 Paling simpel", route: goals.simple },
+      { label: "📏 Jarak terpendek", route: goals.dist },
     ].filter((op) => op.route);
     const winners = ops.map((op) => op.route);
     const pool = (goals.pareto || []).filter((r) => !winners.some((w) => samePath(w, r)));
@@ -125,6 +179,14 @@
 
   function renderRoute(res, ol) {
      const legs = pathToLegs(res.path);
+     if (!legs.length) {
+       const start = res.path[0].stop, end = res.path[res.path.length - 1].stop;
+       ol.appendChild(stopLi("start", "🚩 ", start));
+       const x = res.path.find((p) => p.kind === "xfer");
+       if (x) ol.appendChild(li("xfer", "── " + (x.xtype === "w" ? "🚶 Jalan kaki ~" + (x.xdist || 0) + " m" : "🔗 Pindah") + " ke " + nm(end) + " ──"));
+       ol.appendChild(stopLi("end", "🏁 Sampai: ", end));
+       return;
+     }
      const track = (idx, el) => {
        const last = nav.stops[nav.stops.length - 1];
        if (!last || last.idx !== idx) nav.stops.push({ idx, el });
@@ -221,8 +283,8 @@
      if (routeOptions.length > 1) ol.appendChild(routeSelector(routeOptions, selectedRouteIdx));
      const selected = routeOptions[selectedRouteIdx].route;
      const legs = pathToLegs(selected.path);
-     if (!legs.length) { $("summary").textContent = "Rute tidak ditemukan."; return; }
-     $("summary").textContent = summaryText(selected);
+     setSummary(selected);
+     if (!legs.length) { renderRoute(selected, ol); return; }
 
      // track: urutan halte jalur buat navigasi live (skip duplikat berurutan)
      const track = (idx, el) => {
@@ -297,9 +359,21 @@
     if (!validNames) { $("err").textContent = "Data belum siap, tunggu sebentar."; return; }
     if (!validNames.has(from)) { $("err").textContent = "Halte asal tidak ditemukan — pilih dari daftar."; return; }
     if (!validNames.has(to)) { $("err").textContent = "Halte tujuan tidak ditemukan — pilih dari daftar."; return; }
+    if (!Array.from(index.nameStops.get(from) || []).some((id) => serviceStops.has(id))) {
+      $("err").textContent = `Halte asal "${from}" tidak dilayani filter aktif — coba longgarkan filter.`; return;
+    }
+    if (!Array.from(index.nameStops.get(to) || []).some((id) => serviceStops.has(id))) {
+      $("err").textContent = `Halte tujuan "${to}" tidak dilayani filter aktif — coba longgarkan filter.`; return;
+    }
     if (from === to) { $("err").textContent = "Asal dan tujuan sama."; return; }
-    try { render(findGoalRoutes(data, from, to, index)); }
-    catch (e) { $("err").textContent = e.message; }
+    try {
+      const res = findGoalRoutes(data, from, to, index, activeRtypes());
+      if (!res.fare && !res.simple && !res.dist) {
+        $("summary").textContent = "Tidak ada rute dengan filter aktif — coba longgarkan filter.";
+        return;
+      }
+      render(res);
+    } catch (e) { $("err").textContent = e.message; }
   });
 
   // daftar service worker (offline)
