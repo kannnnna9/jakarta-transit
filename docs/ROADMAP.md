@@ -176,6 +176,30 @@ sentuh router/data.
 
 ---
 
+## v1.9 — Rute Waras + Filter Layanan — DECIDED 2026-07-09 (belum digarap)
+
+Spec penuh: [`docs/superpowers/specs/2026-07-09-v1.9-rute-waras-filter-layanan-design.md`](superpowers/specs/2026-07-09-v1.9-rute-waras-filter-layanan-design.md).
+Lahir dari temuan Reza di v1.8 live (naik di halte lain dari pilihan; leg naik-turun
+halte sama; "Waktu tercepat" 6 transfer + 🚶742m gak waras; tarif≈minim-jalan sering seri).
+
+DECIDED:
+- **Origin lock** — sebelum naik bus pertama hanya boleh pindah peron nama-sama;
+  jalan kaki/halte-terhubung dilarang KECUALI langsung ke tujuan (rute jalan-kaki-saja).
+- **Ride-minimal** — bus hanya dinaiki kalau ≥1 halte ditempuh; tujuan tercapai via
+  transfer = langkah penutup 🚶/🔗/↔️, bukan leg bus.
+- **Tab 2×2 baru**: 💰 Tarif terendah · 🧘 Paling simpel (`transfer×8+halte`, model
+  v1.1.1 teruji — BUKAN minim-transfer-murni, itu bangkitkan bug muter) · 📏 Jarak
+  terpendek (field data baru `dist` int meter, ganti "Waktu tercepat" yang cost-nya
+  bohong) · 🎲 Kejutan (tetap).
+- **Menit kartu = estimasi kasar tampilan-saja**: ride + 4 mnt/transfer + jalan÷1,4 m/s.
+- **Filter layanan**: checkbox 8 kelas `rtype`, batasan keras 3 lapisan (saran halte,
+  router, semua leg), default semua ON + 3 guard UX.
+- **Parity route.py** penuh; cost & tie-break integer-only; tie-break seragam
+  `(cost, jalan_m, transfer, halte, seq)`.
+- SW bump `jt-v11`, minor → 1.9.0. Implementasi di codex.
+
+---
+
 ## Tuning knobs (dunia nyata — jangan hard-freeze)
 - Proximity transfer: **150 m** default. GPS/jarak halte Jakarta padat → coba 100–200 m.
 - Radius "sampai halte" live nav: **50 m** (akurasi GPS HP ~10–30 m).
