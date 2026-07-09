@@ -8,9 +8,9 @@ Pilih halte asal + tujuan (autocomplete nama halte), dapat rute minim-transfer l
 
 ## Status
 
-- **v1.6.0** — SHIPPED + LIVE (lihat [`CHANGELOG.md`](CHANGELOG.md)). Transfer 3-jenis UI (jarak jalan kaki ditampilkan, label per-jenis dirapikan).
+- **v1.7.0** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). Estimasi waktu tempuh + tarif tampil di ringkasan rute.
 - Sisa: regenerate APK di PWABuilder saat mau (ikon sekarang placeholder "JT").
-- Roadmap berikutnya (tuning v1.6): [`docs/ROADMAP.md`](docs/ROADMAP.md).
+- Roadmap berikutnya (v1.8 selektor rute 4-tujuan + tuning dunia nyata): [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Struktur
 

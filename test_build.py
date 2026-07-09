@@ -31,6 +31,29 @@ def main():
             for nx in nexts:
                 assert 0 <= nx < ns, nx
 
+    # 2b. etime parallel to edges: per-edge ride time in seconds
+    etime = data["etime"]
+    assert etime, "etime missing"
+    for ri, adj in data["edges"].items():
+        assert ri in etime, ("etime route missing", ri)
+        for si, nexts in adj.items():
+            assert si in etime[ri], ("etime stop missing", ri, si)
+            for nx in nexts:
+                secs = etime[ri][si][str(nx)]
+                assert isinstance(secs, int) and secs > 0, ("bad etime", ri, si, nx, secs)
+
+    # 2c. fare parallel to routes: [price_int, fare_id]
+    fare = data["fare"]
+    assert len(fare) == nr, (len(fare), nr)
+    classes = set()
+    for item in fare:
+        assert isinstance(item, list) and len(item) == 2, item
+        price, klass = item
+        assert isinstance(price, int) and price >= 0, item
+        assert isinstance(klass, str) and klass, item
+        classes.add(klass)
+    assert "FP" in classes or "FP2" in classes, "BRT fare class missing"
+
     # 3. halte acuan ada
     assert "Pancoran Arah Barat" in data["stops"], "Pancoran Arah Barat hilang"
 

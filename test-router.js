@@ -4,6 +4,7 @@
  const path = require("path");
  const fs = require("fs");
  const { buildIndex, findRoute } = require("./web/router.js");
+ const { routeCost, fmtFare } = require("./web/cost.js");
 
  // --- 1. Selftest feed mini (single route) ---
  const mini = {
@@ -107,5 +108,56 @@
  assert.strictEqual(rs.length, 1, "miniS must have 1 route");
  assert.strictEqual(rs[0].path.filter((p) => p.kind === "take").pop().xtype, "s", "same-name type s");
  console.log("xfer parity ok");
+
+ // --- 4. route time + fare display cost ---
+ const costData = {
+   etime: {
+     "0": { "0": { "1": 90 }, "2": { "3": 120 } },
+     "1": { "1": { "2": 60 } },
+     "2": { "3": { "4": 30 } },
+   },
+   fare: [[3500, "FP"], [3500, "FP2"], [0, "GR"], [20000, "PP"]],
+ };
+ const pathBrtSameStation = [
+   { kind: "board", stop: 0 },
+   { kind: "take", stop: 0, route: 0 },
+   { kind: "ride", stop: 1, route: 0 },
+   { kind: "take", stop: 1, route: 1, xtype: "s" },
+   { kind: "ride", stop: 2, route: 1 },
+ ];
+ assert.deepStrictEqual(routeCost(pathBrtSameStation, costData), { secs: 150, fare: 3500 });
+ const pathBrtWalkBrt = [
+   { kind: "board", stop: 0 },
+   { kind: "take", stop: 0, route: 0 },
+   { kind: "ride", stop: 1, route: 0 },
+   { kind: "take", stop: 2, route: 0, xtype: "w" },
+   { kind: "ride", stop: 3, route: 0 },
+ ];
+ assert.strictEqual(routeCost(pathBrtWalkBrt, costData).fare, 7000, "walk resets BRT fare session");
+ const pathBrtWalkGrBrt = [
+   { kind: "board", stop: 0 },
+   { kind: "take", stop: 0, route: 0 },
+   { kind: "ride", stop: 1, route: 0 },
+   { kind: "take", stop: 3, route: 2, xtype: "w" },
+   { kind: "ride", stop: 4, route: 2 },
+   { kind: "take", stop: 1, route: 1, xtype: "s" },
+   { kind: "ride", stop: 2, route: 1 },
+ ];
+ assert.strictEqual(routeCost(pathBrtWalkGrBrt, costData).fare, 7000, "walk before GR still resets later BRT");
+ const pathGr = [
+   { kind: "board", stop: 3 },
+   { kind: "take", stop: 3, route: 2 },
+   { kind: "ride", stop: 4, route: 2 },
+ ];
+ assert.strictEqual(routeCost(pathGr, costData).fare, 0, "GR is free");
+ const pathPp = [
+   { kind: "board", stop: 3 },
+   { kind: "take", stop: 3, route: 3 },
+   { kind: "ride", stop: 4, route: 3 },
+ ];
+ assert.strictEqual(routeCost(pathPp, costData).fare, 20000, "PP charges flat per boarding");
+ assert.strictEqual(fmtFare(0), "Gratis");
+ assert.strictEqual(fmtFare(3500), "Rp3.500");
+ console.log("cost ok");
 
  console.log("test-router ok");

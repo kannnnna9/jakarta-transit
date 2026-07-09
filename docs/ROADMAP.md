@@ -117,10 +117,10 @@ v1.6.0 SHIPPED + LIVE (riwayat lengkap di [`CHANGELOG.md`](CHANGELOG.md)).
 
 ---
 
-## v1.7 — Estimasi waktu tempuh + tarif (tampilan-saja) — DESIGN 2026-07-08
+## v1.7 — Estimasi waktu tempuh + tarif (tampilan-saja) — SHIPPED 2026-07-09
 
 Spec penuh: [`docs/superpowers/specs/2026-07-08-v1.7-waktu-tarif-design.md`](superpowers/specs/2026-07-08-v1.7-waktu-tarif-design.md).
-Diimplementasi di opencode.
+v1.7.0 SHIPPED (riwayat lengkap di [`CHANGELOG.md`](CHANGELOG.md)).
 
 Ringkasan tiap rute tampil `… · ~N mnt · RpX` di samping `transfer · halte`.
 
@@ -135,6 +135,8 @@ DECIDED 2026-07-08:
 
 Data: `build-data.py` tambah `etime` + `fare` ke `data.json`. Hitung per-rute di
 modul murni `web/cost.js`; `route.py` oracle ikut hitung (parity). SW bump `jt-v9`.
+Tes: `test_build.py`, `test-router.js`, `test-legs.js`, `test-suggest.js`,
+`test-livenav.js`, route.py selftest.
 
 ---
 

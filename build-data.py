@@ -14,6 +14,7 @@ GTFS = os.environ.get("GTFS_DIR", os.path.join(HERE, "data/f-transjakarta~id/ext
 OUT = os.environ.get("OUT", os.path.join(HERE, "web/data.json"))
 
 WALK_M = 150  # ponytail: tunable proximity threshold (roadmap DECIDED 150 m)
+BUS_SPEED_MS = 6  # ponytail: fallback kalau GTFS delta kosong; kalibrasi kalau estimasi meleset.
 
 
 def rows(name):
@@ -36,6 +37,11 @@ def _haversine_m(lat1, lon1, lat2, lon2):
     dl = math.radians(lon2 - lon1)
     a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
     return 2 * R * math.asin(math.sqrt(a))
+
+
+def _time_s(s):
+    h, m, sec = map(int, (s or "0:0:0").split(":"))
+    return h * 3600 + m * 60 + sec
 
 
 # --- Penomoran halte BRT (peta integrasi Transjakarta ed. 2026-06) ---
@@ -71,7 +77,7 @@ def build_snum(trip_route, trip_seq, stop_idx, stop_names):
     for tid, seq in trip_seq.items():
         rid = trip_route.get(tid)
         if rid in SNUM_ORIGIN:
-            names = [_station(stop_names[stop_idx[s]]) for _, s in sorted(seq)]
+            names = [_station(stop_names[stop_idx[s]]) for _, s, *_ in sorted(seq)]
             corr_trips[rid].append(names)
 
     def best(trips, key, score):
@@ -186,6 +192,57 @@ def build_xfer(stop_idx, stop_lat, stop_lon):
     return dict(out)
 
 
+def build_etime(trip_route, trip_seq, route_idx, stop_idx, stop_lat, stop_lon, edges):
+    deltas = defaultdict(list)  # (routeIdx, stopIdx, nextStopIdx) -> [secs]
+    for tid, seq in trip_seq.items():
+        rid = trip_route.get(tid)
+        if rid is None:
+            continue
+        ridx = route_idx[rid]
+        seq.sort()
+        for (_, a, ta), (_, b, tb) in zip(seq, seq[1:]):
+            d = tb - ta
+            if d > 0:
+                deltas[(ridx, stop_idx[a], stop_idx[b])].append(d)
+
+    out = {}
+    for ri, adj in edges.items():
+        out[str(ri)] = {}
+        for si, nexts in adj.items():
+            out[str(ri)][str(si)] = {}
+            for nx in nexts:
+                vals = sorted(deltas.get((ri, si, nx), ()))
+                if vals:
+                    sec = vals[(len(vals) - 1) // 2]
+                else:
+                    la1, lo1, la2, lo2 = stop_lat[si], stop_lon[si], stop_lat[nx], stop_lon[nx]
+                    if None in (la1, lo1, la2, lo2):
+                        sec = 60
+                    else:
+                        sec = int(round(_haversine_m(la1, lo1, la2, lo2) / BUS_SPEED_MS))
+                out[str(ri)][str(si)][str(nx)] = max(1, int(sec))
+    return out
+
+
+def build_fare(route_idx):
+    prices = {}
+    for r in rows("fare_attributes.txt"):
+        prices[r["fare_id"]] = int(round(float(r["price"] or 0)))
+
+    route_fare = {}
+    for r in rows("fare_rules.txt"):
+        route_fare.setdefault(r["route_id"], r["fare_id"])
+
+    fare = [[0, "?"] for _ in route_idx]
+    for rid, idx in route_idx.items():
+        fid = route_fare.get(rid)
+        if not fid:
+            print(f"warn: route {rid} missing fare_rules")
+            continue
+        fare[idx] = [prices.get(fid, 0), fid]
+    return fare
+
+
 def main():
     stop_idx, stop_names, stop_lat, stop_lon = {}, [], [], []
     for r in rows("stops.txt"):
@@ -206,7 +263,7 @@ def main():
 
     trip_seq = defaultdict(list)
     for r in rows("stop_times.txt"):
-        trip_seq[r["trip_id"]].append((int(r["stop_sequence"]), r["stop_id"]))
+        trip_seq[r["trip_id"]].append((int(r["stop_sequence"]), r["stop_id"], _time_s(r["arrival_time"])))
 
     edges = defaultdict(lambda: defaultdict(set))  # routeIdx -> stopIdx -> {next}
     for tid, seq in trip_seq.items():
@@ -215,7 +272,7 @@ def main():
             continue
         ridx = route_idx[rid]
         seq.sort()
-        for (_, a), (_, b) in zip(seq, seq[1:]):
+        for (_, a, _), (_, b, _) in zip(seq, seq[1:]):
             edges[ridx][stop_idx[a]].add(stop_idx[b])
 
     edges_out = {
@@ -224,10 +281,12 @@ def main():
     }
     xfer = build_xfer(stop_idx, stop_lat, stop_lon)
     snum = build_snum(trip_route, trip_seq, stop_idx, stop_names)
+    etime = build_etime(trip_route, trip_seq, route_idx, stop_idx, stop_lat, stop_lon, edges)
+    fare = build_fare(route_idx)
     data = {
         "stops": stop_names, "routes": route_labels, "edges": edges_out,
         "lat": stop_lat, "lon": stop_lon, "rtype": route_types, "xfer": xfer,
-        "snum": snum,
+        "snum": snum, "etime": etime, "fare": fare,
     }
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)

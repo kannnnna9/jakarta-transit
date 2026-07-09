@@ -24,6 +24,9 @@ GTFS = os.environ.get(
 
 WALK_M = 150  # keep in sync with build-data.py WALK_M
 WEIGHT = 8    # biaya 1 transfer = WEIGHT halte; transfer dipilih hanya kalau hemat >WEIGHT halte
+BUS_SPEED_MS = 6
+BRT_FARES = {"FP", "FP2"}
+PREMIUM_FARES = {"PP", "PP2", "PP3"}
 
 
 def _num(s):
@@ -40,6 +43,11 @@ def _haversine_m(lat1, lon1, lat2, lon2):
     dp, dl = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
     a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
     return 2 * R * math.asin(math.sqrt(a))
+
+
+def _time_s(s):
+    h, m, sec = map(int, (s or "0:0:0").split(":"))
+    return h * 3600 + m * 60 + sec
 
 
 def load():
@@ -71,7 +79,7 @@ def load():
     # consecutive stop pairs per trip -> directed ride edges per route
     trip_seq = defaultdict(list)     # trip_id -> [(seq, stop_id)]
     for r in rows("stop_times.txt"):
-        trip_seq[r["trip_id"]].append((int(r["stop_sequence"]), r["stop_id"]))
+        trip_seq[r["trip_id"]].append((int(r["stop_sequence"]), r["stop_id"], _time_s(r["arrival_time"])))
 
     ride = defaultdict(lambda: defaultdict(set))  # route -> stop -> {next stops}
     routes_at = defaultdict(set)                  # stop -> {route}
@@ -80,11 +88,57 @@ def load():
         if route is None:
             continue
         seq.sort()
-        for (_, a), (_, b) in zip(seq, seq[1:]):
+        for (_, a, _), (_, b, _) in zip(seq, seq[1:]):
             ride[route][a].add(b)
             routes_at[a].add(route)
             routes_at[b].add(route)
-    return stop_name, name_stops, rname, ride, routes_at, xfer
+
+    etime = _build_etime(trip_route, trip_seq, stop_lat, stop_lon, ride)
+    fare = _build_fare(rows, rname)
+    return stop_name, name_stops, rname, ride, routes_at, xfer, etime, fare
+
+
+def _build_etime(trip_route, trip_seq, stop_lat, stop_lon, ride):
+    deltas = defaultdict(list)
+    for tid, seq in trip_seq.items():
+        route = trip_route.get(tid)
+        if route is None:
+            continue
+        seq.sort()
+        for (_, a, ta), (_, b, tb) in zip(seq, seq[1:]):
+            d = tb - ta
+            if d > 0:
+                deltas[(route, a, b)].append(d)
+
+    out = {}
+    for route, adj in ride.items():
+        out[route] = {}
+        for a, nexts in adj.items():
+            out[route][a] = {}
+            for b in nexts:
+                vals = sorted(deltas.get((route, a, b), ()))
+                if vals:
+                    sec = vals[(len(vals) - 1) // 2]
+                else:
+                    la1, lo1, la2, lo2 = stop_lat[a], stop_lon[a], stop_lat[b], stop_lon[b]
+                    sec = 60 if None in (la1, lo1, la2, lo2) else int(round(_haversine_m(la1, lo1, la2, lo2) / BUS_SPEED_MS))
+                out[route][a][b] = max(1, int(sec))
+    return out
+
+
+def _build_fare(rows, rname):
+    prices = {r["fare_id"]: int(round(float(r["price"] or 0))) for r in rows("fare_attributes.txt")}
+    route_fare = {}
+    for r in rows("fare_rules.txt"):
+        route_fare.setdefault(r["route_id"], r["fare_id"])
+    fare = {}
+    for route in rname:
+        fid = route_fare.get(route)
+        if not fid:
+            fare[route] = (0, "?")
+        else:
+            fare[route] = (prices.get(fid, 0), fid)
+    return fare
 
 
 def _build_xfer(rows, stop_lat, stop_lon, stop_parent):
@@ -248,13 +302,48 @@ def find(origin, dest, data, pareto_limit=3):
     return pareto[:pareto_limit]
 
 
+def route_cost(path, etime, fare_table):
+    secs = fare = 0
+    brt_paid = False
+    prev_stop = cur_route = None
+    for kind, stop, route, xtype, _xdist in path:
+        if kind == "take":
+            if xtype == "w":
+                brt_paid = False
+            price, klass = fare_table.get(route, (0, "?"))
+            if klass in BRT_FARES:
+                if not brt_paid:
+                    fare += price
+                    brt_paid = True
+            elif klass in PREMIUM_FARES:
+                fare += price
+            cur_route, prev_stop = route, stop
+        elif kind == "ride":
+            route = route if route is not None else cur_route
+            if route is not None and prev_stop is not None:
+                secs += etime.get(route, {}).get(prev_stop, {}).get(stop, 0)
+            cur_route, prev_stop = route, stop
+        elif kind == "board":
+            prev_stop = stop
+    return secs, fare
+
+
+def fmt_fare(n):
+    return f"Rp{n:,}".replace(",", ".") if n else "Gratis"
+
+
+def fmt_minutes(secs):
+    return (secs + 30) // 60
+
+
 def render(res, data):
-    stop_name, _, rname, *_ = data
+    stop_name, _, rname, *_, etime, fare_table = data
     if not res:
         print("No route found.")
         return
     transfers, stops, path = res
-    print(f"Route found: {transfers} transfer(s), {stops} stop(s)\n")
+    secs, rupiah = route_cost(path, etime, fare_table)
+    print(f"Route found: {transfers} transfer(s), {stops} stop(s), ~{fmt_minutes(secs)} min, {fmt_fare(rupiah)}\n")
     tags = {"o": " [transfer resmi]", "w": " [jalan kaki]", "s": " [pindah peron]"}
     for kind, stop, route, xtype, xdist in path:
         nm = stop_name[stop]
@@ -280,7 +369,8 @@ if __name__ == "__main__":
         print(f"Found {len(routes)} Pareto-optimal route(s):\n")
         for i, (tr, st, path) in enumerate(routes, 1):
             print(f"--- Option {i} ---")
-            print(f"{tr} transfer(s), {st} stop(s)\n")
+            secs, rupiah = route_cost(path, data[-2], data[-1])
+            print(f"{tr} transfer(s), {st} stop(s), ~{fmt_minutes(secs)} min, {fmt_fare(rupiah)}\n")
             tags = {"o": " [transfer resmi]", "w": " [jalan kaki]", "s": " [pindah peron]"}
             for kind, stop, route, xtype, xdist in path:
                 nm = stop_name[stop]
@@ -341,6 +431,45 @@ def _selftest():
     walk_take = [(k, s, r, ty, xd) for (k, s, r, ty, xd) in path if k == "take" and ty == "w"]
     assert walk_take and walk_take[0][4] == 120, ("walk distance missing", walk_take)
     print("xfer selftest ok")
+
+    et = {
+        "R1": {"a": {"b": 90}, "b2": {"c": 120}},
+        "R2": {"b": {"c": 60}},
+        "GR": {"d": {"e": 30}},
+        "PP": {"d": {"e": 45}},
+    }
+    ft = {"R1": (3500, "FP"), "R2": (3500, "FP2"), "GR": (0, "GR"), "PP": (20000, "PP")}
+    p_same = [
+        ("board", "a", None, None, None),
+        ("take", "a", "R1", None, None),
+        ("ride", "b", "R1", None, None),
+        ("take", "b", "R2", "s", 0),
+        ("ride", "c", "R2", None, None),
+    ]
+    assert route_cost(p_same, et, ft) == (150, 3500), route_cost(p_same, et, ft)
+    p_walk = [
+        ("board", "a", None, None, None),
+        ("take", "a", "R1", None, None),
+        ("ride", "b", "R1", None, None),
+        ("take", "b2", "R1", "w", 0),
+        ("ride", "c", "R1", None, None),
+    ]
+    assert route_cost(p_walk, et, ft)[1] == 7000, route_cost(p_walk, et, ft)
+    p_walk_gr_brt = [
+        ("board", "a", None, None, None),
+        ("take", "a", "R1", None, None),
+        ("ride", "b", "R1", None, None),
+        ("take", "d", "GR", "w", 0),
+        ("ride", "e", "GR", None, None),
+        ("take", "b", "R2", "s", 0),
+        ("ride", "c", "R2", None, None),
+    ]
+    assert route_cost(p_walk_gr_brt, et, ft)[1] == 7000, route_cost(p_walk_gr_brt, et, ft)
+    p_gr = [("board", "d", None, None, None), ("take", "d", "GR", None, None), ("ride", "e", "GR", None, None)]
+    assert route_cost(p_gr, et, ft)[1] == 0, route_cost(p_gr, et, ft)
+    p_pp = [("board", "d", None, None, None), ("take", "d", "PP", None, None), ("ride", "e", "PP", None, None)]
+    assert route_cost(p_pp, et, ft)[1] == 20000, route_cost(p_pp, et, ft)
+    print("cost selftest ok")
 
     # weighted: long 0-transfer ride (13 halte) must lose to short 1-transfer (2 halte).
     # Pareto should find both: 0-transfer/13-stops and 1-transfer/2-stops are non-dominated.

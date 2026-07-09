@@ -5,6 +5,7 @@
   const { suggest } = window.Suggest;
   const { pathToLegs } = window.Legs;
   const { snap } = window.LiveNav;
+  const { routeCost, fmtFare } = window.Cost;
   const $ = (id) => document.getElementById(id);
   let data = null, index = null, validNames = null;
   let here = null; // {lat,lon} once user shares location
@@ -122,8 +123,13 @@
      nav.stops[nav.stops.length - 1].el = endEl;
      // Update summary for selected route
       const label = routeLabel(res, i, routeOptions.length);
-      $("summary").textContent = label + ": " + res.transfers + " transfer · " + res.stops + " halte";
+      $("summary").textContent = label + ": " + summaryText(res);
    }
+
+  function summaryText(res) {
+    const c = routeCost(res.path, data);
+    return `${res.transfers} transfer · ${res.stops} halte · ~${Math.round(c.secs / 60)} mnt · ${fmtFare(c.fare)}`;
+  }
 
   // Baris halte dgn badge nomor BRT (peta integrasi) sebelum nama, contoh "1-20 Kota".
   function stopLi(cls, prefix, idx) {
@@ -202,7 +208,7 @@
        ol.appendChild(selector);
        $("summary").textContent = "Ditemukan " + routeOptions.length + " opsi rute Pareto-optimal:";
      } else {
-       $("summary").textContent = `${routeOptions[0].transfers} transfer · ${routeOptions[0].stops} halte`;
+       $("summary").textContent = summaryText(routeOptions[0]);
      }
      
      // Render selected route

@@ -38,7 +38,8 @@ const dp = path.join(__dirname, "web", "data.json");
 if (fs.existsSync(dp)) {
   const { buildIndex, findRoute } = require("./web/router.js");
   const data = JSON.parse(fs.readFileSync(dp, "utf8"));
-  const res = findRoute(data, "Simpang Kuningan", "CSW 1", buildIndex(data));
+  const opts = findRoute(data, "Simpang Kuningan", "CSW 1", buildIndex(data));
+  const res = opts.find((r) => r.transfers > 0) || opts[0];
   const lg = pathToLegs(res.path);
   assert.ok(lg.length >= 2, "Simpang->CSW multi-leg, dapat " + lg.length);
   assert.strictEqual(data.stops[lg[0].board], "Simpang Kuningan", "leg0 naik = asal");

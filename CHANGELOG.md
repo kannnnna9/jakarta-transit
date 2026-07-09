@@ -3,6 +3,28 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.7.0] - 2026-07-09
+
+Estimasi waktu tempuh + tarif di ringkasan rute. Router Pareto tetap berbasis transfer + halte; waktu dan tarif hanya dihitung untuk ditampilkan.
+
+### Added
+
+- **Estimasi waktu tempuh**: `build-data.py` menambahkan `etime` per edge dari median delta `arrival_time` GTFS, dengan fallback jarak haversine ÷ kecepatan default.
+- **Estimasi tarif**: `build-data.py` menambahkan `fare` per route dari `fare_rules.txt` + `fare_attributes.txt`.
+- **Helper biaya rute**: `web/cost.js` menghitung `{ secs, fare }` dari path router, termasuk aturan BRT sekali bayar, transfer `s`/`o` gratis dalam sistem, `w` reset sesi, Mikrotrans gratis, dan PP/PP2/PP3 per-naik.
+- **Ringkasan UI**: baris hasil rute kini tampil `transfer · halte · ~N mnt · RpX/Gratis`.
+
+### Changed
+
+- **route.py**: oracle ikut memuat `etime` + `fare`, menghitung biaya rute dengan rumus sama seperti `web/cost.js`, dan mencetak waktu/tarif di output CLI.
+- **web/sw.js**: cache app-shell di-bump `jt-v8` → `jt-v9` dan `cost.js` masuk precache.
+
+### Notes
+
+- Router inti dan Pareto 2D tidak berubah.
+- Waktu adalah ride-only: tanpa waktu tunggu dan tanpa menit jalan kaki.
+- Semua tes hijau (`test_build.py`, `test-router.js`, `test-legs.js`, `test-suggest.js`, `test-livenav.js`, route.py selftest).
+
 ## [1.6.0] - 2026-07-08
 
 Transfer 3-jenis UI: jarak jalan kaki ditampilkan, label per-jenis dirapikan, distance diteruskan dari data.json ke path → legs → UI.
@@ -79,6 +101,7 @@ Multi-rute Pareto: 2–3 rute alternatif (minim transfer / minim halte / seimban
 - SW cache di-bump `jt-v7` (app-shell: route selector, tab styles).
 - Semua path relatif — tetap aman di subpath `/jakarta-transit/`.
 
+[1.7.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.7.0
 [1.6.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.6.0
 [1.5.1]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.5.1
 [1.5.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.5.0
