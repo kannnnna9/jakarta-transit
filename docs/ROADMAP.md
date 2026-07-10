@@ -225,9 +225,23 @@ DECIDED + shipped:
 
 ---
 
+## v1.11 — Tab Alternatif — SHIPPED 2026-07-10
+
+Spec penuh: [`docs/superpowers/specs/2026-07-10-v1.11-tab-alternatif-design.md`](superpowers/specs/2026-07-10-v1.11-tab-alternatif-design.md).
+
+DECIDED + shipped:
+- **Tab "🔀 Alternatif"** mengganti "🎲 Kejutan (beta)" yang random.
+- **Pencarian terpisah** dari 3 goal lama: Tarif/Simpel/Jarak tetap origin-locked; Alternatif saja yang boleh seed halte tetangga dalam `ACCESS_M = 400`.
+- **BRT-only + guard 1,5× halte**: kandidat non-koridor dibuang, rute yang muter kebanyakan halte dibuang.
+- **Kasus kunci**: Simpang Kuningan → Ragunan menampilkan Alternatif 0 transfer, 9 halte, jalan 297 m ke Underpass Kuningan, lalu route 6.
+- **Parity route.py + web/router.js**: step baru `access` dirender "🚶 jalan Nm → halte" dan dihitung di ringkasan jalan/waktu.
+- `APP_VERSION` 1.11.0 dan cache `jt-v13`.
+
+---
+
 ## Tuning knobs (dunia nyata — jangan hard-freeze)
 - Proximity transfer: **150 m** default. GPS/jarak halte Jakarta padat → coba 100–200 m.
+- ACCESS_M alternatif: **400 m** default. Kalibrasi kalau ada bukti orang rela jalan lebih jauh/lebih pendek.
 - STOP_M simple: **40 m** default. Kalibrasi setelah lihat rute nyata.
 - DIST_TRANSFER_M jarak: **200 m** default. Kalibrasi hanya kalau rute nyata masih transfer-happy.
 - Radius "sampai halte" live nav: **50 m** (akurasi GPS HP ~10–30 m).
-- v1.9+: kalau Kejutan perlu parity/reproducible, pindahkan RNG ber-seed ke inti router.

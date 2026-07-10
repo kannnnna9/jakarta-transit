@@ -99,6 +99,24 @@
     const pkDist = findGoalRoutes(data, "Pancoran Arah Barat", "Kota Kasablanka", idx).dist;
     assert.ok(pkDist, "dist Pancoran->Kota must find a route");
     assert.ok(pkDist.transfers <= 2, "dist Pancoran->Kota must avoid 6-transfer route, got " + pkDist.transfers);
+
+    const altGoals = findGoalRoutes(data, "Simpang Kuningan", "Ragunan", idx);
+    assert.ok(altGoals.alternative, "Simpang Kuningan->Ragunan must expose deterministic Alternatif");
+    assert.strictEqual(altGoals.alternative.transfers, 0, "Alternatif must be one-seat via Underpass");
+    const altAccess = altGoals.alternative.path.find(p => p.kind === "access");
+    assert.ok(altAccess, "Alternatif must start with access walk");
+    assert.strictEqual(data.stops[altAccess.stop], "Underpass Kuningan", "access target must be Underpass Kuningan");
+    assert.ok(altAccess.xdist >= 250 && altAccess.xdist <= 350, "access walk should be about 297m, got " + altAccess.xdist);
+    const altTake = altGoals.alternative.path.find(p => p.kind === "take");
+    assert.ok(data.routes[altTake.route].startsWith("6 "), "Alternatif must board route 6, got " + data.routes[altTake.route]);
+    for (const key of ["fare", "simple", "dist"]) {
+      assert.notStrictEqual(altGoals[key].transfers, 0, key + " legacy goal must stay origin-locked at 1 transfer");
+      assert.notDeepStrictEqual(
+        altGoals.alternative.path.map(p => p.kind + ":" + p.stop + ":" + p.route),
+        altGoals[key].path.map(p => p.kind + ":" + p.stop + ":" + p.route),
+        "Alternatif must not duplicate " + key
+      );
+    }
   } else {
    console.log("(skip parity — web/data.json belum ada, jalankan build-data.py)");
  }
@@ -285,18 +303,52 @@
  const noRoute = findGoalRoutes(tieMini, "A", "C", buildTestIndex(tieMini), new Set(["Royaltrans"]));
  assert.strictEqual(noRoute.fare, null, "filter with no matching service returns no route");
 
+ const altMini = {
+   stops: ["A", "D", "C", "B", "X", "Y", "Z"],
+   routes: ["Goal1", "Goal2", "AltBrt", "Micro"],
+   edges: {
+     "0": { "0": [1] },
+     "1": { "1": [2] },
+     "2": { "3": [2] },
+     "3": { "3": [4], "4": [5], "5": [6], "6": [2] },
+   },
+   xfer: { "1": [[1, "s", 0]] },
+   lat: [0, 0, 0, 0, 1, 1, 1],
+   lon: [0, 0.01, 0.011, 0.003, 1, 1, 1],
+   etime: {
+     "0": { "0": { "1": 60 } },
+     "1": { "1": { "2": 60 } },
+     "2": { "3": { "2": 300 } },
+     "3": { "3": { "4": 1 }, "4": { "5": 1 }, "5": { "6": 1 }, "6": { "2": 1 } },
+   },
+   fare: [[3500, "FP"], [3500, "FP"], [3500, "FP"], [0, "GR"]],
+   rtype: ["BRT", "BRT", "BRT", "Mikrotrans"],
+   dist: {},
+ };
+ const alt = findGoalRoutes(altMini, "A", "C", buildTestIndex(altMini)).alternative;
+ assert.ok(alt, "alternative mini route exists");
+ assert.deepStrictEqual([alt.transfers, alt.stops], [0, 1], "alternative mini chooses nearby one-seat BRT");
+ assert.deepStrictEqual(
+   alt.path.map(p => [p.kind, p.stop, p.route, p.xtype, p.xdist]),
+   [["board", 0, null, null, undefined], ["access", 3, null, "w", 334], ["take", 3, 2, "s", 0], ["ride", 2, 2, null, undefined]],
+   "alternative path includes access step to nearby stop"
+ );
+ assert.ok(alt.path.every(p => p.route == null || altMini.rtype[p.route] === "BRT"), "alternative is BRT-only by default");
+
  const appJs = fs.readFileSync(path.join(__dirname, "web", "app.js"), "utf8");
  const indexHtml = fs.readFileSync(path.join(__dirname, "web", "index.html"), "utf8");
  const swJs = fs.readFileSync(path.join(__dirname, "web", "sw.js"), "utf8");
- assert.ok(appJs.includes('APP_VERSION = "1.10.0"'), "app.js must define APP_VERSION 1.10.0");
- for (const label of ["Tarif terendah", "Paling simpel", "Jarak terpendek", "Kejutan (beta)"]) {
+ assert.ok(appJs.includes('APP_VERSION = "1.11.0"'), "app.js must define APP_VERSION 1.11.0");
+ for (const label of ["Tarif terendah", "Paling simpel", "Jarak terpendek", "Alternatif"]) {
    assert.ok(appJs.includes(label), "app.js must render " + label);
  }
+ assert.ok(!appJs.includes("Math.random"), "v1.11 removes random surprise route selection");
+ assert.ok(!appJs.includes("Kejutan (beta)"), "v1.11 removes Kejutan label");
  assert.ok(!appJs.includes("Waktu tercepat"), "v1.9 removes Waktu tercepat label");
  assert.ok(!appJs.includes("Minim jalan-kaki"), "v1.9 removes Minim jalan-kaki label");
  assert.ok(indexHtml.includes('id="service-filter"'), "index.html must expose service filter");
  assert.ok(indexHtml.includes('id="app-version"'), "index.html must expose version badge");
- assert.ok(swJs.includes("jt-v12"), "service worker cache must bump to jt-v12");
- console.log("v1.10 goals ok");
+ assert.ok(swJs.includes("jt-v13"), "service worker cache must bump to jt-v13");
+ console.log("v1.11 goals ok");
 
  console.log("test-router ok");

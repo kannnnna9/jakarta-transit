@@ -33,6 +33,17 @@ const l2 = pathToLegs(solo);
 assert.strictEqual(l2.length, 1, "1 leg");
 assert.deepStrictEqual([l2[0].board, l2[0].alight, l2[0].mid.length], [0, 1, 0], "solo naik/turun/lewat");
 
+// --- 2b. Access walk sebelum bus: bukan leg, take pertama tetap jadi board ---
+const accessSolo = [
+  { kind: "board", stop: 0, route: null, xtype: null },
+  { kind: "access", stop: 3, route: null, xtype: "w", xdist: 334 },
+  { kind: "take", stop: 3, route: 0, xtype: "s", xdist: 0 },
+  { kind: "ride", stop: 1, route: 0 },
+];
+const la = pathToLegs(accessSolo);
+assert.strictEqual(la.length, 1, "access walk does not create a bus leg");
+assert.deepStrictEqual([la[0].board, la[0].alight], [3, 1], "access route boards at nearby stop");
+
 // --- 3. Paritas data nyata: Simpang Kuningan -> CSW 1 (rute weighted, multi-leg) ---
 const dp = path.join(__dirname, "web", "data.json");
 if (fs.existsSync(dp)) {

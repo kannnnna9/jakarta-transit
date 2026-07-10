@@ -1,8 +1,8 @@
 "use strict";
 // DOM/render. Router murni ada di Router (router.js). File ini TIDAK berisi logika rute.
 (function () {
-  const APP_VERSION = "1.10.0";
-  const CACHE_NAME = "jt-v12";
+  const APP_VERSION = "1.11.0";
+  const CACHE_NAME = "jt-v13";
   const { buildIndex, findGoalRoutes } = window.Router;
   const { suggest } = window.Suggest;
   const { pathToLegs } = window.Legs;
@@ -146,7 +146,7 @@
    }
 
   function routeWalkMeters(path) {
-    return path.reduce((n, step) => n + (step.kind === "take" && step.xtype === "w" ? (step.xdist || 0) : 0), 0);
+    return path.reduce((n, step) => n + ((step.kind === "access" || step.kind === "take") && step.xtype === "w" ? (step.xdist || 0) : 0), 0);
   }
 
   function summaryText(res) {
@@ -160,20 +160,13 @@
     if (flt) $("summary").textContent += " · " + flt;
   }
 
-  function samePath(a, b) {
-    return a && b && a.path.map((p) => p.kind + ":" + p.stop + ":" + p.route).join("|") ===
-      b.path.map((p) => p.kind + ":" + p.stop + ":" + p.route).join("|");
-  }
-
   function goalOptions(goals) {
     const ops = [
       { label: "💰 Tarif terendah", route: goals.fare },
       { label: "🧘 Paling simpel", route: goals.simple },
       { label: "📏 Jarak terpendek", route: goals.dist },
     ].filter((op) => op.route);
-    const winners = ops.map((op) => op.route);
-    const pool = (goals.pareto || []).filter((r) => !winners.some((w) => samePath(w, r)));
-    if (pool.length) ops.push({ label: "🎲 Kejutan (beta)", route: pool[Math.floor(Math.random() * pool.length)] });
+    if (goals.alternative) ops.push({ label: "🔀 Alternatif", route: goals.alternative });
     return ops;
   }
 
@@ -192,7 +185,10 @@
        if (!last || last.idx !== idx) nav.stops.push({ idx, el });
        return el;
      };
-     ol.appendChild(track(legs[0].board, stopLi("start", "🚩 ", legs[0].board)));
+     const start = res.path[0].stop;
+     const access = res.path.find((p) => p.kind === "access");
+     ol.appendChild(track(start, stopLi("start", "🚩 ", start)));
+     if (access) ol.appendChild(li("xfer", "── 🚶 jalan " + (access.xdist || 0) + "m → " + nm(access.stop) + " ──"));
      legs.forEach((leg, j) => {
        if (j > 0) ol.appendChild(transferBlock(legs[j - 1], leg));
        ol.appendChild(legHeader(leg));
@@ -207,6 +203,7 @@
      const endEl = stopLi("end", "🏁 Sampai: ", legs[legs.length - 1].alight);
      ol.appendChild(endEl);
      nav.stops[nav.stops.length - 1].el = endEl;
+     if (navigator.geolocation) $("nav").hidden = false;
   }
 
   // Baris halte dgn badge nomor BRT (peta integrasi) sebelum nama, contoh "1-20 Kota".
@@ -282,32 +279,8 @@
      if (!routeOptions.length) { $("summary").textContent = "Rute tidak ditemukan."; return; }
      if (routeOptions.length > 1) ol.appendChild(routeSelector(routeOptions, selectedRouteIdx));
      const selected = routeOptions[selectedRouteIdx].route;
-     const legs = pathToLegs(selected.path);
      setSummary(selected);
-     if (!legs.length) { renderRoute(selected, ol); return; }
-
-     // track: urutan halte jalur buat navigasi live (skip duplikat berurutan)
-     const track = (idx, el) => {
-       const last = nav.stops[nav.stops.length - 1];
-       if (!last || last.idx !== idx) nav.stops.push({ idx, el });
-       return el;
-     };
-     ol.appendChild(track(legs[0].board, stopLi("start", "🚩 ", legs[0].board)));
-     legs.forEach((leg, i) => {
-       if (i > 0) ol.appendChild(transferBlock(legs[i - 1], leg));
-       ol.appendChild(legHeader(leg));
-       ol.appendChild(track(leg.board, stopLi("stop", "Naik: ", leg.board)));
-       if (leg.mid.length) {
-         const { wrap, els } = midDetails(leg.mid);
-         leg.mid.forEach((s, j) => track(s, els[j]));
-         ol.appendChild(wrap);
-       }
-       ol.appendChild(track(leg.alight, stopLi("stop", "Turun: ", leg.alight)));
-     });
-     const endEl = stopLi("end", "🏁 Sampai: ", legs[legs.length - 1].alight);
-     ol.appendChild(endEl);
-     nav.stops[nav.stops.length - 1].el = endEl; // highlight tiba di baris "Sampai", bukan "Turun"
-     if (navigator.geolocation) $("nav").hidden = false;
+     renderRoute(selected, ol);
    }
 
   // --- Navigasi live: watchPosition -> snap maju-only -> highlight halte aktif ---

@@ -3,6 +3,26 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.11.0] - 2026-07-10
+
+Tab Alternatif deterministik: boleh jalan akses sampai 400 m ke halte tetangga.
+
+### Added
+
+- **Tab "🔀 Alternatif"** menggantikan "🎲 Kejutan" — rute deterministik yang boleh jalan lebih jauh (maks 400 m) ke halte tetangga untuk dapat opsi lebih sedikit transfer atau lebih cepat.
+- **Jalan akses awal** di router Python dan JS: Simpang Kuningan → Ragunan kini menampilkan jalan 297 m ke Underpass Kuningan lalu route 6 one-seat, 0 transfer.
+- **Guard waras** untuk Alternatif: kandidat >1,5× halte dari rute paling ringkas dibuang.
+- **Filter BRT-only** khusus Alternatif supaya opsi tetangga tidak jatuh ke Mikrotrans/non-koridor.
+
+### Changed
+
+- Tab "🎲 Kejutan (beta)" dihapus dari UI dan diganti Alternatif yang deterministik.
+- **web/sw.js** cache app-shell di-bump ke `jt-v13`; `APP_VERSION` menjadi `1.11.0`.
+
+### Removed
+
+- Random route selection via `Math.random()` untuk tab Kejutan.
+
 ## [1.10.0] - 2026-07-10
 
 Router rasa manusia: bobot transfer nyata untuk tab simpel, dan penalti transfer untuk jarak.
@@ -168,6 +188,7 @@ Multi-rute Pareto: 2–3 rute alternatif (minim transfer / minim halte / seimban
 - SW cache di-bump `jt-v7` (app-shell: route selector, tab styles).
 - Semua path relatif — tetap aman di subpath `/jakarta-transit/`.
 
+[1.11.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.11.0
 [1.10.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.10.0
 [1.9.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.9.0
 [1.8.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.8.0

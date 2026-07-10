@@ -29,10 +29,9 @@ Repo = sumber kebenaran. Semua konteks ada di sini, bukan di memory tool tertent
 
 ## Status sekarang
 
-**v1.10.0 SHIPPED** (riwayat lengkap: `CHANGELOG.md`). Sudah masuk: GPS/koordinat + transfer 3-jenis (v1.1), weighted route cost W=8 (v1.1.1), tampilan per-leg + badge jenis bus (v1.2.0), nomor halte BRT "koridor-urut" sesuai peta integrasi + `SNUM_OVERRIDE` (v1.3.0), navigasi live snap maju-only tanpa peta (v1.4.0, modul `web/livenav.js`), multi-rute Pareto dengan UI tab selector deskriptif (v1.5.1 hotfix: Pareto pruning fix + tab label), transfer 3-jenis UI dengan jarak jalan kaki (v1.6.0: xfer distance end-to-end), estimasi waktu tempuh + tarif tampilan-saja (v1.7.0: `etime`/`fare` + `web/cost.js`), selektor rute 4-tujuan (v1.8.0), rute waras + filter layanan (v1.9.0), router rasa manusia (v1.10.0: `STOP_M=40`, transfer meter nyata, `DIST_TRANSFER_M=200`, `APP_VERSION` 1.10.0).
+**v1.11.0 SHIPPED** (riwayat lengkap: `CHANGELOG.md`). Sudah masuk: GPS/koordinat + transfer 3-jenis (v1.1), weighted route cost W=8 (v1.1.1), tampilan per-leg + badge jenis bus (v1.2.0), nomor halte BRT "koridor-urut" sesuai peta integrasi + `SNUM_OVERRIDE` (v1.3.0), navigasi live snap maju-only tanpa peta (v1.4.0, modul `web/livenav.js`), multi-rute Pareto dengan UI tab selector deskriptif (v1.5.1 hotfix: Pareto pruning fix + tab label), transfer 3-jenis UI dengan jarak jalan kaki (v1.6.0: xfer distance end-to-end), estimasi waktu tempuh + tarif tampilan-saja (v1.7.0: `etime`/`fare` + `web/cost.js`), selektor rute 4-tujuan (v1.8.0), rute waras + filter layanan (v1.9.0), router rasa manusia (v1.10.0), tab Alternatif deterministik (v1.11.0: `ACCESS_M=400`, BRT-only, Simpang Kuningan → Underpass → route 6, `APP_VERSION` 1.11.0).
 
 Sisa manual: regenerate APK di PWABuilder (situs eksternal, dikerjakan Reza) — ikon masih placeholder "JT", ganti logo asli sebelum submit Play.
 
 Fitur berikutnya (lihat `docs/ROADMAP.md`):
-- Testing/tuning dunia nyata: calibrate WEIGHT, proximity threshold, radius nav sesuai data real.
-- Opsional berikutnya: Kejutan ber-seed di inti router kalau butuh hasil reproducible/parity.
+- Testing/tuning dunia nyata: calibrate WEIGHT, proximity threshold, ACCESS_M, radius nav sesuai data real.

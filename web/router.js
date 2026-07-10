@@ -8,6 +8,7 @@
   const WEIGHT = 8;
   const STOP_M = 40;
   const DIST_TRANSFER_M = 200;
+  const ACCESS_M = 400;
 
   // Min-heap urut (cost, seq). cost = transfers*WEIGHT + stops. seq = counter
   // unik biar heapq tak pernah banding field non-comparable (tiebreak route.py).
@@ -119,6 +120,22 @@
 
   function routeListAt(routesAt, stop, data, allowed) {
     return Array.from(routesAt[stop] || []).filter((r) => routeAllowed(data, r, allowed)).sort((a, b) => a - b);
+  }
+
+  function accessStops(data, originName, radius) {
+    const origins = data.stops.map((n, i) => [n, i]).filter(([n]) => n.toLowerCase().includes(originName.toLowerCase())).map(([, i]) => i).sort((a, b) => a - b);
+    const out = new Map();
+    for (const origin of origins) {
+      for (let stop = 0; stop < data.stops.length; stop++) {
+        const dist = stopWalkM(data, origin, stop);
+        if (dist <= radius && (!out.has(stop) || dist < out.get(stop))) out.set(stop, dist);
+      }
+    }
+    return out;
+  }
+
+  function pathSignature(path) {
+    return path.filter((p) => p.kind === "take" && p.route != null).map((p) => p.route).join(",");
   }
 
   function findRoute(data, originName, destName, index, paretoLimit = 3, allowedRtypes) {
@@ -256,6 +273,33 @@
     return (byStop && byStop[to]) || 0;
   }
 
+  function routeSecs(data, path) {
+    let secs = 0, prevStop = null, curRoute = null, boarded = false;
+    for (const step of path) {
+      if (step.kind === "take") {
+        if (boarded) secs += 240;
+        boarded = true;
+        curRoute = step.route;
+        prevStop = step.stop;
+      } else if (step.kind === "ride") {
+        const route = step.route == null ? curRoute : step.route;
+        if (route != null && prevStop != null) secs += edgeSecs(data, route, prevStop, step.stop);
+        curRoute = route;
+        prevStop = step.stop;
+      } else if (step.kind === "board") {
+        prevStop = step.stop;
+      } else if (step.kind === "xfer") {
+        if (curRoute != null) secs += 240;
+        if (step.xtype === "w") secs += Math.round((step.xdist || 0) / 1.4);
+        prevStop = step.stop;
+      } else if (step.kind === "access") {
+        secs += Math.round((step.xdist || 0) / 1.4);
+        prevStop = step.stop;
+      }
+    }
+    return secs;
+  }
+
   function fareAfterTake(data, route, xtype, brtPaid) {
     let paid = brtPaid, add = 0;
     if (xtype === "w") paid = false;
@@ -375,13 +419,103 @@
     return null;
   }
 
+  function findAlternative(data, originName, destName, index, goals, radius = ACCESS_M, allowedRtypes = new Set(["BRT"])) {
+    const { nameStops, routesAt } = index || buildIndex(data);
+    const originIds = data.stops.map((n, i) => [n, i]).filter(([n]) => n.toLowerCase().includes(originName.toLowerCase())).map(([, i]) => i).sort((a, b) => a - b);
+    const dests = new Set((data.stops || []).map((n, i) => [n, i]).filter(([n]) => n.toLowerCase().includes(destName.toLowerCase())).map(([, i]) => i));
+    const access = accessStops(data, originName, radius);
+    if (!originIds.length || !dests.size || !access.size) return null;
+
+    function accessOrigin(stop, walkM) {
+      const matches = originIds.filter((s) => stopWalkM(data, s, stop) === walkM);
+      return (matches.length ? matches : originIds).sort((a, b) => a - b)[0];
+    }
+
+    const heap = [];
+    const best = new Map();
+    const solutions = [];
+    let seq = 0, seen = 0;
+    for (const [s, walkM] of Array.from(access.entries()).sort((a, b) => (a[1] - b[1]) || (a[0] - b[0]))) {
+      const start = accessOrigin(s, walkM);
+      const path = [{ kind: "board", stop: start, route: null, xtype: null }];
+      if (s !== start) path.push({ kind: "access", stop: s, route: null, xtype: "w", xdist: walkM });
+      heapPush(heap, { cost: walkM, walkM, tr: 0, st: 0, seq: seq++, stop: s, route: null, ridden: false, path });
+    }
+
+    while (heap.length && seen++ < MAX_GOAL_STATES && solutions.length < 50) {
+      const cur = heapPop(heap);
+      const key = cur.stop + "," + cur.route;
+      const old = best.get(key) || [];
+      if (dominated(old, cur)) continue;
+      old.push([cur.cost, cur.walkM, cur.tr, cur.st]);
+      best.set(key, old);
+
+      if (dests.has(cur.stop)) {
+        solutions.push({ transfers: cur.tr, stops: cur.st, walkM: cur.walkM, path: cur.path });
+        continue;
+      }
+
+      if (cur.route !== null) {
+        const nexts = data.edges[cur.route] && data.edges[cur.route][cur.stop];
+        if (nexts) for (const nx of nexts) {
+          heapPush(heap, {
+            cost: cur.cost + STOP_M, walkM: cur.walkM, tr: cur.tr, st: cur.st + 1, seq: seq++,
+            stop: nx, route: cur.route, ridden: true,
+            path: cur.path.concat([{ kind: "ride", stop: nx, route: cur.route, xtype: null }]),
+          });
+        }
+      }
+
+      if (cur.route !== null && !cur.ridden) continue;
+      for (const [s2, xtype, xdist] of transferTargets(data, nameStops, cur.stop)) {
+        if (cur.route === null && xtype !== "s" && !dests.has(s2)) continue;
+        const ntr = cur.route === null ? cur.tr : cur.tr + 1;
+        const nwalk = cur.walkM + (xtype === "w" ? (xdist || 0) : 0);
+        const ncost = cur.cost + (cur.route === null ? 0 : (xdist || 0));
+        if (dests.has(s2) && s2 !== cur.stop) {
+          heapPush(heap, {
+            cost: ncost, walkM: nwalk, tr: ntr, st: cur.st, seq: seq++,
+            stop: s2, route: null, ridden: false,
+            path: cur.path.concat([{ kind: "xfer", stop: s2, route: null, xtype, xdist }]),
+          });
+          continue;
+        }
+        for (const r2 of routeListAt(routesAt, s2, data, allowedRtypes)) {
+          if (r2 === cur.route && s2 === cur.stop) continue;
+          if (ntr > MAX_GOAL_TRANSFERS) continue;
+          heapPush(heap, {
+            cost: ncost, walkM: nwalk, tr: ntr, st: cur.st, seq: seq++,
+            stop: s2, route: r2, ridden: false,
+            path: cur.path.concat([{ kind: "take", stop: s2, route: r2, xtype, xdist }]),
+          });
+        }
+      }
+    }
+
+    if (!solutions.length) return null;
+    const fewestStops = Math.min(...solutions.map((s) => s.stops));
+    const goalSigs = new Set(["fare", "simple", "dist"].map((k) => goals[k] && pathSignature(goals[k].path)).filter(Boolean));
+    const sane = solutions
+      .filter((s) => s.stops <= fewestStops * 1.5 && !goalSigs.has(pathSignature(s.path)))
+      .map(({ transfers, stops, path }) => ({ transfers, stops, path }));
+    sane.sort((a, b) =>
+      (a.transfers - b.transfers) ||
+      (routeSecs(data, a.path) - routeSecs(data, b.path)) ||
+      (a.stops - b.stops) ||
+      pathSignature(a.path).localeCompare(pathSignature(b.path))
+    );
+    return sane[0] || null;
+  }
+
   function findGoalRoutes(data, originName, destName, index, allowedRtypes) {
-    return {
+    const goals = {
       fare: shortestGoal(data, originName, destName, index, "fare", allowedRtypes),
       simple: shortestGoal(data, originName, destName, index, "simple", allowedRtypes),
       dist: shortestGoal(data, originName, destName, index, "dist", allowedRtypes),
       pareto: findRoute(data, originName, destName, index, 3, allowedRtypes),
     };
+    goals.alternative = findAlternative(data, originName, destName, index, goals);
+    return goals;
   }
 
   return { MinHeap, buildIndex, findRoute, findGoalRoutes };

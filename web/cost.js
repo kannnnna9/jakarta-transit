@@ -48,6 +48,9 @@
         if (curRoute != null) secs += TRANSFER_WAIT_S;
         if (step.xtype === "w") secs += Math.round((step.xdist || 0) / WALK_SPEED_MS);
         prevStop = step.stop;
+      } else if (step.kind === "access") {
+        secs += Math.round((step.xdist || 0) / WALK_SPEED_MS);
+        prevStop = step.stop;
       }
     }
     return { secs, fare };
