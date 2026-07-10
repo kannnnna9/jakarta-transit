@@ -47,6 +47,24 @@ def test_mini_alternative():
     assert path[2] == ("take", 3, 2, "s", 0)
 
 
+def test_dest_exact_name():
+    """Regresi v1.11.1: tujuan harus exact-name, bukan substring.
+    'Ragunan' JANGAN ketangkep 'Simpang Ragunan Ar-Raudhah'."""
+    try:
+        import route
+        data = route.load()
+    except Exception as e:  # GTFS data belum di-fetch → skip, bukan gagal
+        print("test-route-alt: skip real-data (", e, ")")
+        return
+    stop_name = data[0]
+    goals = find_goals("Simpang Kuningan", "Ragunan", data, allowed={"BRT"})
+    alt = find_alternative("Simpang Kuningan", "Ragunan", data, goals, allowed={"BRT"})
+    assert alt is not None, "alternatif Simpang Kuningan->Ragunan hilang"
+    last = alt[2][-1]
+    assert stop_name[last[1]] == "Ragunan", f"turun di halte salah: {stop_name[last[1]]!r}"
+
+
 if __name__ == "__main__":
     test_mini_alternative()
+    test_dest_exact_name()
     print("test-route-alt ok")

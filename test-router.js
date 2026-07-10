@@ -338,7 +338,7 @@
  const appJs = fs.readFileSync(path.join(__dirname, "web", "app.js"), "utf8");
  const indexHtml = fs.readFileSync(path.join(__dirname, "web", "index.html"), "utf8");
  const swJs = fs.readFileSync(path.join(__dirname, "web", "sw.js"), "utf8");
- assert.ok(appJs.includes('APP_VERSION = "1.11.0"'), "app.js must define APP_VERSION 1.11.0");
+ assert.ok(appJs.includes('APP_VERSION = "1.11.1"'), "app.js must define APP_VERSION 1.11.1");
  for (const label of ["Tarif terendah", "Paling simpel", "Jarak terpendek", "Alternatif"]) {
    assert.ok(appJs.includes(label), "app.js must render " + label);
  }
@@ -348,7 +348,7 @@
  assert.ok(!appJs.includes("Minim jalan-kaki"), "v1.9 removes Minim jalan-kaki label");
  assert.ok(indexHtml.includes('id="service-filter"'), "index.html must expose service filter");
  assert.ok(indexHtml.includes('id="app-version"'), "index.html must expose version badge");
- assert.ok(swJs.includes("jt-v13"), "service worker cache must bump to jt-v13");
+ assert.ok(swJs.includes("jt-v14"), "service worker cache must bump to jt-v14");
  console.log("v1.11 goals ok");
 
  console.log("test-router ok");

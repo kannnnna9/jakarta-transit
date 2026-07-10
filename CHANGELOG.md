@@ -3,6 +3,12 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.11.1] - 2026-07-11
+
+### Fixed
+
+- **Tab Alternatif turun di halte salah.** Pencocokan asal/tujuan di rute Alternatif pakai substring — query "Ragunan" ikut ketangkap "Simpang Ragunan Ar-Raudhah", jadi rute berhenti di halte keliru. Disamakan ke exact-name (`name_stops`) seperti 3 tab lain. Contoh: Simpang Kuningan → Ragunan kini turun di "Ragunan" asli.
+
 ## [1.11.0] - 2026-07-10
 
 Tab Alternatif deterministik: boleh jalan akses sampai 400 m ke halte tetangga.

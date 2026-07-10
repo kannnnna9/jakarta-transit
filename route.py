@@ -246,11 +246,12 @@ def _allowed(route, rtype, allowed):
     return not allowed or rtype.get(route, "") in allowed
 
 
-def _access_stops(name_substr, data, radius):
+def _access_stops(name, data, radius):
     stop_name = data[0]
+    name_stops = data[1]
     stop_lat = data[10] if len(data) > 10 else {}
     stop_lon = data[11] if len(data) > 11 else {}
-    origins = sorted(s for s, n in stop_name.items() if name_substr.lower() in n.lower())
+    origins = sorted(name_stops.get(name, ()))
     out = {}
     for origin in origins:
         for stop in sorted(stop_name):
@@ -547,8 +548,8 @@ def find_alternative(origin, dest, data, goals_result, radius=ACCESS_M, allowed=
     rtype = data[9] if len(data) > 9 else {}
     stop_lat = data[10] if len(data) > 10 else {}
     stop_lon = data[11] if len(data) > 11 else {}
-    origin_ids = sorted(s for s, n in stop_name.items() if origin.lower() in n.lower())
-    dests = {s for s, n in stop_name.items() if dest.lower() in n.lower()}
+    origin_ids = sorted(name_stops.get(origin, ()))
+    dests = set(name_stops.get(dest, ()))
     access = _access_stops(origin, data, radius)
     if not origin_ids or not dests or not access:
         return None

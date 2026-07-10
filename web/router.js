@@ -122,8 +122,8 @@
     return Array.from(routesAt[stop] || []).filter((r) => routeAllowed(data, r, allowed)).sort((a, b) => a - b);
   }
 
-  function accessStops(data, originName, radius) {
-    const origins = data.stops.map((n, i) => [n, i]).filter(([n]) => n.toLowerCase().includes(originName.toLowerCase())).map(([, i]) => i).sort((a, b) => a - b);
+  function accessStops(data, originName, radius, nameStops) {
+    const origins = Array.from(nameStops.get(originName) || []).sort((a, b) => a - b);
     const out = new Map();
     for (const origin of origins) {
       for (let stop = 0; stop < data.stops.length; stop++) {
@@ -421,9 +421,9 @@
 
   function findAlternative(data, originName, destName, index, goals, radius = ACCESS_M, allowedRtypes = new Set(["BRT"])) {
     const { nameStops, routesAt } = index || buildIndex(data);
-    const originIds = data.stops.map((n, i) => [n, i]).filter(([n]) => n.toLowerCase().includes(originName.toLowerCase())).map(([, i]) => i).sort((a, b) => a - b);
-    const dests = new Set((data.stops || []).map((n, i) => [n, i]).filter(([n]) => n.toLowerCase().includes(destName.toLowerCase())).map(([, i]) => i));
-    const access = accessStops(data, originName, radius);
+    const originIds = Array.from(nameStops.get(originName) || []).sort((a, b) => a - b);
+    const dests = new Set(nameStops.get(destName) || []);
+    const access = accessStops(data, originName, radius, nameStops);
     if (!originIds.length || !dests.size || !access.size) return null;
 
     function accessOrigin(stop, walkM) {
