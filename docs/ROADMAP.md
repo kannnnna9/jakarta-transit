@@ -211,8 +211,23 @@ DECIDED + shipped:
 
 ---
 
+## v1.10 — Router Rasa Manusia — SHIPPED 2026-07-10
+
+Spec penuh: [`docs/superpowers/specs/2026-07-10-v1.10-router-rasa-manusia-design.md`](superpowers/specs/2026-07-10-v1.10-router-rasa-manusia-design.md).
+
+DECIDED + shipped:
+- **Paling simpel**: cost menjadi `halte × STOP_M + Σ jarak_transfer_meter`, `STOP_M = 40`.
+- **Jarak transfer nyata**: pindah peron `s` memakai haversine antar stop_id senama, `w` memakai `xdist`, `o` memakai `xdist` atau haversine fallback. Peron tidak lagi gratis mutlak.
+- **Jarak terpendek**: cost menjadi jarak ride/walk + `DIST_TRANSFER_M = 200` per transfer.
+- **Parity route.py + web/router.js**: helper haversine mirror, meter dibulatkan integer, tie-break tetap deterministik.
+- **Regresi kunci**: Simpang Kuningan → CSW simpel memilih pindah peron L13E; Pancoran → Kota tidak lagi 6 transfer.
+- `APP_VERSION` 1.10.0 dan cache `jt-v12`.
+
+---
+
 ## Tuning knobs (dunia nyata — jangan hard-freeze)
 - Proximity transfer: **150 m** default. GPS/jarak halte Jakarta padat → coba 100–200 m.
+- STOP_M simple: **40 m** default. Kalibrasi setelah lihat rute nyata.
+- DIST_TRANSFER_M jarak: **200 m** default. Kalibrasi hanya kalau rute nyata masih transfer-happy.
 - Radius "sampai halte" live nav: **50 m** (akurasi GPS HP ~10–30 m).
-- Penalti cost jalan kaki: kalibrasi setelah lihat rute nyata (mis. 1 transfer walk ≈ N halte).
 - v1.9+: kalau Kejutan perlu parity/reproducible, pindahkan RNG ber-seed ke inti router.

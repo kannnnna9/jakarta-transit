@@ -24,12 +24,15 @@ GTFS = os.environ.get(
 
 WALK_M = 150  # keep in sync with build-data.py WALK_M
 WEIGHT = 8    # biaya 1 transfer = WEIGHT halte; transfer dipilih hanya kalau hemat >WEIGHT halte
+STOP_M = 40
+DIST_TRANSFER_M = 200
 BUS_SPEED_MS = 6
 TRANSFER_WAIT_S = 240
 WALK_SPEED_MS = 1.4
 BRT_FARES = {"FP", "FP2"}
 PREMIUM_FARES = {"PP", "PP2", "PP3"}
 MAX_GOAL_TRANSFERS = 6  # ponytail: guard transfer 0-detik; naikkan kalau rute nyata butuh >6 transfer.
+MAX_GOAL_STATES = 2000000  # ponytail: data.json goal search needs room for distance objective.
 MAX_PARETO_STATES = 100000  # ponytail: CLI oracle guard; JS app remains primary runtime.
 
 
@@ -47,6 +50,15 @@ def _haversine_m(lat1, lon1, lat2, lon2):
     dp, dl = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
     a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
     return 2 * R * math.asin(math.sqrt(a))
+
+
+def _stop_walk_m(a, b, stop_lat, stop_lon):
+    if a == b:
+        return 0
+    la1, lo1, la2, lo2 = stop_lat.get(a), stop_lon.get(a), stop_lat.get(b), stop_lon.get(b)
+    if None in (la1, lo1, la2, lo2):
+        return 1
+    return max(1, int(round(_haversine_m(la1, lo1, la2, lo2))))
 
 
 def _time_s(s):
@@ -102,7 +114,7 @@ def load():
     etime = _build_etime(trip_route, trip_seq, stop_lat, stop_lon, ride)
     dist = _build_dist(stop_lat, stop_lon, ride)
     fare = _build_fare(rows, rname)
-    return stop_name, name_stops, rname, ride, routes_at, xfer, etime, dist, fare, rtype
+    return stop_name, name_stops, rname, ride, routes_at, xfer, etime, dist, fare, rtype, stop_lat, stop_lon
 
 
 def _build_etime(trip_route, trip_seq, stop_lat, stop_lon, ride):
@@ -233,9 +245,19 @@ def _allowed(route, rtype, allowed):
     return not allowed or rtype.get(route, "") in allowed
 
 
-def _targets(stop, stop_name, name_stops, xfer):
-    targets = [(s2, "s", 0) for s2 in name_stops[stop_name[stop]]]
-    targets += list(xfer.get(stop, ()))
+def _xfer_m(stop, s2, xtype, xdist, stop_lat, stop_lon):
+    if xtype == "w":
+        return xdist or _stop_walk_m(stop, s2, stop_lat, stop_lon)
+    if xtype in ("s", "o"):
+        return xdist or _stop_walk_m(stop, s2, stop_lat, stop_lon)
+    return xdist or 0
+
+
+def _targets(stop, stop_name, name_stops, xfer, stop_lat=None, stop_lon=None):
+    stop_lat = stop_lat or {}
+    stop_lon = stop_lon or {}
+    targets = [(s2, "s", _stop_walk_m(stop, s2, stop_lat, stop_lon)) for s2 in name_stops[stop_name[stop]]]
+    targets += [(s2, xtype, _xfer_m(stop, s2, xtype, xdist, stop_lat, stop_lon)) for s2, xtype, xdist in xfer.get(stop, ())]
     return sorted(targets, key=lambda x: (x[0], x[1], x[2] or 0))
 
 
@@ -248,6 +270,8 @@ def find(origin, dest, data, pareto_limit=3, allowed=None):
     stop_name, name_stops, rname, ride, routes_at = data[:5]
     xfer = data[5] if len(data) > 5 else {}
     rtype = data[9] if len(data) > 9 else {}
+    stop_lat = data[10] if len(data) > 10 else {}
+    stop_lon = data[11] if len(data) > 11 else {}
     o, d = origin.lower(), dest.lower()
     origins = [s for s, n in stop_name.items() if o in n.lower()]
     dests = {s for s, n in stop_name.items() if d in n.lower()}
@@ -303,7 +327,7 @@ def find(origin, dest, data, pareto_limit=3, allowed=None):
         # board / transfer
         if route is not None and not ridden:
             continue
-        for s2, xtype, xdist in _targets(stop, stop_name, name_stops, xfer):
+        for s2, xtype, xdist in _targets(stop, stop_name, name_stops, xfer, stop_lat, stop_lon):
             if route is None and xtype != "s" and s2 not in dests:
                 continue
             ntr = tr if route is None else tr + 1
@@ -415,6 +439,8 @@ def find_goal(origin, dest, data, goal, allowed=None):
     dist = data[7] if len(data) > 7 else {}
     fare_table = data[8] if len(data) > 8 else {}
     rtype = data[9] if len(data) > 9 else {}
+    stop_lat = data[10] if len(data) > 10 else {}
+    stop_lon = data[11] if len(data) > 11 else {}
     o, d = origin.lower(), dest.lower()
     origins = sorted(s for s, n in stop_name.items() if o in n.lower())
     dests = {s for s, n in stop_name.items() if d in n.lower()}
@@ -429,7 +455,7 @@ def find_goal(origin, dest, data, goal, allowed=None):
 
     best = defaultdict(list)
     seen = 0
-    while pq and seen < 500000:
+    while pq and seen < MAX_GOAL_STATES:
         seen += 1
         cost, walk_m, tr, st, _sq, stop, route, brt_paid, ridden, path = heapq.heappop(pq)
         key = (stop, route, brt_paid) if goal == "fare" else (stop, route)
@@ -442,19 +468,24 @@ def find_goal(origin, dest, data, goal, allowed=None):
 
         if route is not None:
             for nxt in sorted(ride[route].get(stop, ())):
-                add = _edge_dist(dist, route, stop, nxt) if goal == "dist" else (1 if goal == "simple" else 0)
+                add = _edge_dist(dist, route, stop, nxt) if goal == "dist" else (STOP_M if goal == "simple" else 0)
                 npath = path + [("ride", nxt, route, None, None)]
                 nsq = next(seq)
                 heapq.heappush(pq, (cost + add, walk_m, tr, st + 1, nsq, nxt, route, brt_paid, True, npath))
 
         if route is not None and not ridden:
             continue
-        for s2, xtype, xdist in _targets(stop, stop_name, name_stops, xfer):
+        for s2, xtype, xdist in _targets(stop, stop_name, name_stops, xfer, stop_lat, stop_lon):
             if route is None and xtype != "s" and s2 not in dests:
                 continue
             ntr = tr if route is None else tr + 1
             walk_add = (xdist or 0) if xtype == "w" else 0
-            xcost = walk_add if goal == "dist" else 0
+            transfer_cost = 0 if route is None else DIST_TRANSFER_M
+            xcost = 0
+            if goal == "simple":
+                xcost = xdist or 0
+            elif goal == "dist":
+                xcost = walk_add + transfer_cost
             if s2 in dests and s2 != stop:
                 npath = path + [("xfer", s2, None, xtype, xdist)]
                 nsq = next(seq)
@@ -467,9 +498,9 @@ def find_goal(origin, dest, data, goal, allowed=None):
                 if goal == "fare":
                     add, paid = _fare_after_take(fare_table, r2, xtype, brt_paid)
                 elif goal == "simple":
-                    add = 0 if route is None else WEIGHT
+                    add = 0 if route is None else (xdist or 0)
                 elif goal == "dist":
-                    add = walk_add
+                    add = walk_add + transfer_cost
                 if ntr > MAX_GOAL_TRANSFERS:
                     continue
                 npath = path + [("take", s2, r2, xtype, xdist)]
@@ -676,3 +707,42 @@ def _selftest():
     routes_set = {(tr, st) for tr, st, _ in routes}
     assert routes_set == {(0, 13), (1, 2)}, f"expected routes (0,13) and (1,2), got {routes_set}"
     print("weighted selftest ok")
+
+    sn4 = {"a": "A", "b": "B", "c": "C", "b2": "B", "d": "D"}
+    ns4 = defaultdict(list)
+    for s, n in sn4.items():
+        ns4[n].append(s)
+    ride4 = defaultdict(lambda: defaultdict(set))
+    ride4["ToB"]["a"].add("b")
+    ride4["Peron"]["b2"].add("c")
+    ride4["Walk"]["a"].add("d")
+    ra4 = defaultdict(set)
+    for r, adj in ride4.items():
+        for u, vs in adj.items():
+            ra4[u].add(r)
+            for v in vs:
+                ra4[v].add(r)
+    xfer4 = {"d": [("c", "w", 136)], "c": [("d", "w", 136)]}
+    lat4 = {s: 0 for s in sn4}
+    lon4 = {"a": 0, "b": 0, "c": 0.001223, "b2": 0.000117, "d": 0}
+    dist4 = {"ToB": {"a": {"b": 100}}, "Peron": {"b2": {"c": 100}}, "Walk": {"a": {"d": 100}}}
+    fare4 = {"ToB": (3500, "FP"), "Peron": (3500, "FP"), "Walk": (3500, "FP")}
+    data4 = (sn4, ns4, {"ToB": "ToB", "Peron": "Peron", "Walk": "Walk"}, ride4, ra4, xfer4, {}, dist4, fare4, {}, lat4, lon4)
+    simple = find_goal("A", "C", data4, "simple")
+    assert simple, "human simple mini route not found"
+    takes = [(kind, route, xtype) for kind, _stop, route, xtype, _xdist in simple[2] if kind == "take"]
+    assert ("take", "Peron", "s") in takes, ("simple must prefer real same-platform distance", takes)
+    print("human simple selftest ok")
+
+    if os.path.exists(os.path.join(GTFS, "stops.txt")):
+        real = load()
+        sn, _ns, rn = real[:3]
+        simpang = find_goal("Simpang Kuningan", "CSW 1", real, "simple")
+        assert simpang, "Simpang Kuningan->CSW 1 simple route not found"
+        simpang_takes = [(rn[rt], xtype) for kind, _stop, rt, xtype, _xdist in simpang[2] if kind == "take"]
+        assert any(name.startswith("L13E") and xtype == "s" for name, xtype in simpang_takes), simpang_takes
+        assert not any(xtype == "w" and (_xdist or 0) >= 100 for kind, _stop, _rt, xtype, _xdist in simpang[2] if kind == "take"), simpang_takes
+
+        pk = find_goal("Pancoran Arah Barat", "Kota", real, "dist")
+        assert pk and pk[0] <= 2, ("Pancoran->Kota dist transfers", None if not pk else pk[0], sn[pk[2][-1][1]] if pk else None)
+        print("real route selftest ok")

@@ -37,3 +37,19 @@
 ## Scope v1.0
 - [x] **Scope router** — DECIDED 2026-07-05: minim-transfer lalu minim-halte, GTFS static,
       TANPA waktu tempuh / realtime. Oke buat v1. (Diskusi algoritma lanjut menyusul.)
+
+## Bug router (ditemukan 2026-07-10, diskusi Reza) — DECIDED, spec siap
+> Semua sudah diputuskan. Spec implementasi:
+> `docs/superpowers/specs/2026-07-10-v1.10-router-rasa-manusia-design.md`. Codex garap langsung.
+- [x] **"Jarak terpendek" muter kebanyakan transfer** — DECIDED: tambah denda tetap
+      `X = 200 m` per transfer di `goal="dist"`. Transfer layak hanya kalau ngirit >200 m.
+      Bukti data: transfer berguna ngirit ribuan m, sampah ngirit puluhan m (Pancoran→Kota
+      6tf→0tf). X=100/200/500 hasil identik; 200 = tengah teraman, tunable.
+- [x] **"Paling simpel" v2 (bobot transfer nyata)** — DECIDED: denda transfer = JARAK
+      PERON NYATA dari koordinat lat/lon (peron ~6–20 m, jalan kaki ~136 m). Halte besar
+      (CSW 13 m) otomatis lebih mahal tanpa data luas bangunan (GTFS tak punya).
+      `cost = halte×STOP_M + Σ jarak_transfer_m`. Jaga: peron JANGAN nol mutlak (cegah bug
+      muter), jumlah halte tetap bos. Prototype `proto_simple_v2.py` sudah benerin kasus
+      Simpang Kuningan→CSW (peron, bukan nyebrang 🚶136m).
+- [x] **`STOP_M` awal** — DECIDED: 40 (1 halte ≈ jalan 40 m). Sesuaikan setelah
+      lihat rute nyata live kalau ada bukti; tunable, bukan blocker.

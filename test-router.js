@@ -83,6 +83,22 @@
     assert.ok(shortRoute, "Simpang Kuningan->CSW 1 harus ada rute pendek, dapat: " +
       rw.map(r => r.transfers + "tf/" + r.stops + "st").join(", "));
     console.log("weighted ok:", shortRoute.transfers, "transfer,", shortRoute.stops, "stop (shortest)");
+
+    const goalsReal = findGoalRoutes(data, "Simpang Kuningan", "CSW 1", idx);
+    const simpleTakes = goalsReal.simple.path.filter(p => p.kind === "take");
+    assert.ok(
+      simpleTakes.some(p => p.xtype === "s" && data.routes[p.route].startsWith("L13E")),
+      "simple Simpang Kuningan->CSW must transfer platform to L13E, got: " +
+        simpleTakes.map(p => `${p.xtype || "-"}:${data.routes[p.route]}`).join(" -> ")
+    );
+    assert.ok(
+      !simpleTakes.some(p => p.xtype === "w" && p.xdist >= 100),
+      "simple Simpang Kuningan->CSW must not choose 136m walk transfer"
+    );
+
+    const pkDist = findGoalRoutes(data, "Pancoran Arah Barat", "Kota Kasablanka", idx).dist;
+    assert.ok(pkDist, "dist Pancoran->Kota must find a route");
+    assert.ok(pkDist.transfers <= 2, "dist Pancoran->Kota must avoid 6-transfer route, got " + pkDist.transfers);
   } else {
    console.log("(skip parity — web/data.json belum ada, jalankan build-data.py)");
  }
@@ -228,6 +244,25 @@
  assert.ok(walkOnly, "walk-only route to adjacent destination is allowed");
  assert.strictEqual(pathToLegs(walkOnly.path).length, 0, "walk-only route has no bus leg");
 
+ const humanSimpleMini = {
+   stops: ["A", "B", "C", "B", "D"],
+   routes: ["ToB", "Peron", "Walk"],
+   edges: { "0": { "0": [1] }, "1": { "3": [2] }, "2": { "0": [4] } },
+   xfer: { "4": [[2, "w", 136]], "2": [[4, "w", 136]] },
+   lat: [0, 0, 0, 0, 0],
+   lon: [0, 0, 0.001223, 0.000117, 0],
+   etime: {},
+   fare: [[3500, "FP"], [3500, "FP"], [3500, "FP"]],
+   rtype: ["BRT", "BRT", "BRT"],
+   dist: { "0": { "0": { "1": 100 } }, "1": { "3": { "2": 100 } }, "2": { "0": { "4": 100 } } },
+ };
+ const humanSimple = findGoalRoutes(humanSimpleMini, "A", "C", buildTestIndex(humanSimpleMini)).simple;
+ assert.ok(humanSimple, "human simple mini route exists");
+ assert.ok(
+   humanSimple.path.some(p => p.kind === "take" && p.xtype === "s" && p.route === 1),
+   "simple must prefer real same-platform distance over 136m walk"
+ );
+
  const tieMini = {
    stops: ["A", "B", "C", "D"],
    routes: ["R1", "R2"],
@@ -253,7 +288,7 @@
  const appJs = fs.readFileSync(path.join(__dirname, "web", "app.js"), "utf8");
  const indexHtml = fs.readFileSync(path.join(__dirname, "web", "index.html"), "utf8");
  const swJs = fs.readFileSync(path.join(__dirname, "web", "sw.js"), "utf8");
- assert.ok(appJs.includes('APP_VERSION = "1.9.0"'), "app.js must define APP_VERSION 1.9.0");
+ assert.ok(appJs.includes('APP_VERSION = "1.10.0"'), "app.js must define APP_VERSION 1.10.0");
  for (const label of ["Tarif terendah", "Paling simpel", "Jarak terpendek", "Kejutan (beta)"]) {
    assert.ok(appJs.includes(label), "app.js must render " + label);
  }
@@ -261,7 +296,7 @@
  assert.ok(!appJs.includes("Minim jalan-kaki"), "v1.9 removes Minim jalan-kaki label");
  assert.ok(indexHtml.includes('id="service-filter"'), "index.html must expose service filter");
  assert.ok(indexHtml.includes('id="app-version"'), "index.html must expose version badge");
- assert.ok(swJs.includes("jt-v11"), "service worker cache must bump to jt-v11");
- console.log("v1.9 goals ok");
+ assert.ok(swJs.includes("jt-v12"), "service worker cache must bump to jt-v12");
+ console.log("v1.10 goals ok");
 
  console.log("test-router ok");

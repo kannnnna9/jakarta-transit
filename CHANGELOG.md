@@ -3,6 +3,27 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.10.0] - 2026-07-10
+
+Router rasa manusia: bobot transfer nyata untuk tab simpel, dan penalti transfer untuk jarak.
+
+### Changed
+
+- **Paling simpel** kini menghitung `halte × STOP_M + jarak transfer nyata`, dengan `STOP_M = 40`.
+- Transfer peron/resmi/jalan kaki memakai jarak meter dari koordinat halte atau `xdist`; peron tidak lagi gratis mutlak.
+- **Jarak terpendek** menambahkan `DIST_TRANSFER_M = 200` per transfer supaya rute transfer-happy kalah kalau hemat jaraknya kecil.
+- **route.py** dan **web/router.js** dimirror dengan helper haversine dan pembulatan meter integer.
+- **web/sw.js** cache app-shell di-bump ke `jt-v12`; `APP_VERSION` menjadi `1.10.0`.
+
+### Fixed
+
+- `Paling simpel` untuk Simpang Kuningan → CSW memilih pindah peron ke L13E, bukan jalan kaki 136 m.
+- `Jarak terpendek` untuk regresi Pancoran → Kota tidak lagi memilih rute 6-transfer.
+
+### Removed
+
+- Menghapus `proto_simple_v2.py` karena preview sudah masuk router produksi.
+
 ## [1.9.0] - 2026-07-09
 
 Rute waras + filter layanan.
@@ -147,6 +168,7 @@ Multi-rute Pareto: 2–3 rute alternatif (minim transfer / minim halte / seimban
 - SW cache di-bump `jt-v7` (app-shell: route selector, tab styles).
 - Semua path relatif — tetap aman di subpath `/jakarta-transit/`.
 
+[1.10.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.10.0
 [1.9.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.9.0
 [1.8.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.8.0
 [1.7.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.7.0

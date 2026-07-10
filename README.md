@@ -8,7 +8,7 @@ Pilih halte asal + tujuan (autocomplete nama halte), lalu pilih rute berdasarkan
 
 ## Status
 
-- **v1.9.0** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). Rute waras, filter layanan, selector tarif/simpel/jarak/Kejutan.
+- **v1.10.0** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). Router rasa manusia: simpel pakai jarak transfer nyata, jarak terpendek kena penalti transfer.
 - Sisa: regenerate APK di PWABuilder saat mau (ikon sekarang placeholder "JT").
 - Roadmap berikutnya (testing/tuning dunia nyata + opsi Kejutan ber-seed): [`docs/ROADMAP.md`](docs/ROADMAP.md).
 

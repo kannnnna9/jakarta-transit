@@ -6,6 +6,8 @@
   // biaya 1 transfer = WEIGHT halte (mirror route.py WEIGHT). Transfer dipilih
   // hanya kalau hemat >WEIGHT halte -> hindari rute 0-transfer yang muter.
   const WEIGHT = 8;
+  const STOP_M = 40;
+  const DIST_TRANSFER_M = 200;
 
   // Min-heap urut (cost, seq). cost = transfers*WEIGHT + stops. seq = counter
   // unik biar heapq tak pernah banding field non-comparable (tiebreak route.py).
@@ -84,11 +86,33 @@
     return (byStop && byStop[to]) || 1;
   }
 
+  function haversineM(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const p1 = lat1 * Math.PI / 180, p2 = lat2 * Math.PI / 180;
+    const dp = (lat2 - lat1) * Math.PI / 180, dl = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  function stopWalkM(data, a, b) {
+    if (a === b) return 0;
+    if (!data.lat || !data.lon) return 1;
+    const la1 = data.lat[a], lo1 = data.lon[a], la2 = data.lat[b], lo2 = data.lon[b];
+    if ([la1, lo1, la2, lo2].some((x) => x == null)) return 1;
+    return Math.max(1, Math.round(haversineM(la1, lo1, la2, lo2)));
+  }
+
+  function xferM(data, from, to, xtype, xdist) {
+    if (xtype === "w") return xdist || stopWalkM(data, from, to);
+    if (xtype === "s" || xtype === "o") return xdist || stopWalkM(data, from, to);
+    return xdist || 0;
+  }
+
   function transferTargets(data, nameStops, stop) {
     const out = [];
-    for (const s2 of nameStops.get(data.stops[stop]) || []) out.push([s2, "s", 0]);
+    for (const s2 of nameStops.get(data.stops[stop]) || []) out.push([s2, "s", stopWalkM(data, stop, s2)]);
     const xl = data.xfer && data.xfer[stop];
-    if (xl) for (const link of xl) out.push([link[0], link[1], link[2] || 0]);
+    if (xl) for (const link of xl) out.push([link[0], link[1], xferM(data, stop, link[0], link[1], link[2] || 0)]);
     out.sort((a, b) => (a[0] - b[0]) || String(a[1]).localeCompare(String(b[1])) || ((a[2] || 0) - (b[2] || 0)));
     return out;
   }
@@ -216,6 +240,7 @@
   const BRT = new Set(["FP", "FP2"]);
   const PREMIUM = new Set(["PP", "PP2", "PP3"]);
   const MAX_GOAL_TRANSFERS = 6; // ponytail: guard transfer 0-detik; naikkan kalau rute nyata butuh >6 transfer.
+  const MAX_GOAL_STATES = 2000000; // ponytail: distance goal on real data can exceed 500k states.
 
   function cmpLabel(a, b) {
     return (a.cost - b.cost) || (a.walkM - b.walkM) || (a.tr - b.tr) || (a.st - b.st) || (a.seq - b.seq);
@@ -291,7 +316,7 @@
       });
     }
 
-    while (heap.length && seen++ < 500000) {
+    while (heap.length && seen++ < MAX_GOAL_STATES) {
       const cur = heapPop(heap);
       const key = cur.stop + "," + cur.route + (goal === "fare" ? "," + (cur.brtPaid ? 1 : 0) : "");
       const old = best.get(key) || [];
@@ -304,7 +329,7 @@
       if (cur.route !== null) {
         const nexts = data.edges[cur.route] && data.edges[cur.route][cur.stop];
         if (nexts) for (const nx of nexts) {
-          const add = goal === "dist" ? edgeDist(data, cur.route, cur.stop, nx) : (goal === "simple" ? 1 : 0);
+          const add = goal === "dist" ? edgeDist(data, cur.route, cur.stop, nx) : (goal === "simple" ? STOP_M : 0);
           heapPush(heap, {
             cost: cur.cost + add, walkM: cur.walkM, tr: cur.tr, st: cur.st + 1, seq: seq++,
             stop: nx, route: cur.route, brtPaid: cur.brtPaid, ridden: true,
@@ -318,7 +343,10 @@
         if (cur.route === null && xtype !== "s" && !dests.has(s2)) continue;
         const ntr = cur.route === null ? cur.tr : cur.tr + 1;
         const walkAdd = xtype === "w" ? (xdist || 0) : 0;
-        const xcost = goal === "dist" ? walkAdd : 0;
+        const transferCost = cur.route === null ? 0 : DIST_TRANSFER_M;
+        let xcost = 0;
+        if (goal === "simple") xcost = xdist || 0;
+        else if (goal === "dist") xcost = walkAdd + transferCost;
         const xstep = { kind: "xfer", stop: s2, route: null, xtype, xdist };
         if (dests.has(s2) && s2 !== cur.stop) {
           heapPush(heap, {
@@ -333,8 +361,8 @@
           if (r2 === cur.route && s2 === cur.stop) continue;
           let add = 0, brtPaid = cur.brtPaid;
           if (goal === "fare") [add, brtPaid] = fareAfterTake(data, r2, xtype, cur.brtPaid);
-          else if (goal === "simple") add = cur.route === null ? 0 : WEIGHT;
-          else if (goal === "dist") add = walkAdd;
+          else if (goal === "simple") add = cur.route === null ? 0 : (xdist || 0);
+          else if (goal === "dist") add = walkAdd + transferCost;
           if (ntr > MAX_GOAL_TRANSFERS) continue;
           heapPush(heap, {
             cost: cur.cost + add, walkM: cur.walkM + walkAdd, tr: ntr, st: cur.st, seq: seq++,
