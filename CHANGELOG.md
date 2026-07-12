@@ -3,6 +3,27 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.12.0] - 2026-07-12
+
+Tab 📏 Jarak dipertahankan, ditambah warning tarif yang menyebut SEBAB mahalnya.
+
+### Added
+
+- **Warning tarif di tab 📏 Jarak terpendek** — helper `fareWarning(distRoute, rekomRoute)` di `web/app.js` mendeteksi 2 sebab rute Jarak lebih mahal dari 🌟 Rekomendasi, lalu menampilkan baris peringatan (amber) tepat di bawah ringkasan:
+  - **Premium** — rute pakai bus kelas `PP`/`PP2`/`PP3` (tarif dibayar tiap naik). Contoh: Pancoran Arah Barat → Kota Kasablanka (Rp27.000 vs Rp3.500).
+  - **Transfer keluar** — semua BRT tapi transfer jalan kaki antar halte = tap keluar-masuk = bayar tiket 2×. Contoh: Simpang Kuningan → CSW 1 (Rp7.000 vs Rp3.500).
+- Warning **hanya** muncul saat tab 📏 Jarak aktif DAN tarifnya lebih mahal dari 🌟 Rekomendasi (tab lain tidak menampilkan).
+
+### Changed
+
+- Label tab `🧘 Paling simpel` → **`🌟 Rekomendasi`** (algoritma Model C `find_recommend` tetap; cuma teks).
+- **web/app.js** cache app-shell di-bump ke `jt-v14`; `APP_VERSION` menjadi `1.12.0`.
+- **web/sw.js** cache app-shell di-bump ke `jt-v15`.
+
+### Fixed
+
+- (Tidak ada bugfix router — `find_goal`/`find_recommend`/`recommendRoute` tidak disentuh; warning murni turunan data rute yang sudah dihitung.)
+
 ## [1.11.1] - 2026-07-11
 
 ### Fixed

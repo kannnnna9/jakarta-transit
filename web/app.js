@@ -1,8 +1,8 @@
 "use strict";
 // DOM/render. Router murni ada di Router (router.js). File ini TIDAK berisi logika rute.
 (function () {
-  const APP_VERSION = "1.11.1";
-  const CACHE_NAME = "jt-v13";
+  const APP_VERSION = "1.12.0";
+  const CACHE_NAME = "jt-v14";
   const { buildIndex, findGoalRoutes } = window.Router;
   const { suggest } = window.Suggest;
   const { pathToLegs } = window.Legs;
@@ -116,6 +116,7 @@
 
    // Render route selector tabs untuk tujuan v1.8
    let routeOptions = null;
+   let lastGoals = null;
    let selectedRouteIdx = 0;
    
     function routeSelector(ops, selected) {
@@ -143,6 +144,14 @@
      ol.appendChild(selector);
      renderRoute(routeOptions[i].route, ol);
      setSummary(routeOptions[i].route);
+     updateFareWarning(routeOptions[i].route);
+   }
+
+   function updateFareWarning(selectedRoute) {
+     const warn = (lastGoals && selectedRoute === lastGoals.dist)
+       ? fareWarning(lastGoals.dist, lastGoals.simple)
+       : null;
+     $("fare-warn").textContent = warn || "";
    }
 
   function routeWalkMeters(path) {
@@ -160,15 +169,30 @@
     if (flt) $("summary").textContent += " · " + flt;
   }
 
-  function goalOptions(goals) {
-    const ops = [
-      { label: "💰 Tarif terendah", route: goals.fare },
-      { label: "🧘 Paling simpel", route: goals.simple },
-      { label: "📏 Jarak terpendek", route: goals.dist },
-    ].filter((op) => op.route);
-    if (goals.alternative) ops.push({ label: "🔀 Alternatif", route: goals.alternative });
-    return ops;
-  }
+   function goalOptions(goals) {
+     const ops = [
+       { label: "💰 Tarif terendah", route: goals.fare },
+       { label: "🌟 Rekomendasi", route: goals.simple },
+       { label: "📏 Jarak terpendek", route: goals.dist },
+     ].filter((op) => op.route);
+     if (goals.alternative) ops.push({ label: "🔀 Alternatif", route: goals.alternative });
+     return ops;
+   }
+
+   const PREMIUM = new Set(["PP", "PP2", "PP3"]);
+
+   function fareWarning(distRoute, rekomRoute) {
+     if (!distRoute || !rekomRoute || !data) return null;
+     const distFare = routeCost(distRoute.path, data).fare;
+     const rekomFare = routeCost(rekomRoute.path, data).fare;
+     if (distFare <= rekomFare) return null;
+     const hasPremium = distRoute.path.some((step) =>
+       step.kind === "take" && PREMIUM.has((data.fare[step.route] || [0, "?"])[1]));
+     const selisih = fmtFare(distFare - rekomFare);
+     return hasPremium
+       ? "🅿️ Pakai bus Premium — tarif tiap naik (" + selisih + " lebih mahal dari Rekomendasi)"
+       : "🚶 Transfer keluar halte — bayar tiket 2× (" + selisih + " lebih mahal dari Rekomendasi)";
+   }
 
   function renderRoute(res, ol) {
      const legs = pathToLegs(res.path);
@@ -274,6 +298,7 @@
      if (!res) { $("summary").textContent = "Rute tidak ditemukan."; return; }
      
      routeOptions = goalOptions(res);
+     lastGoals = res;
      selectedRouteIdx = 0;
 
      if (!routeOptions.length) { $("summary").textContent = "Rute tidak ditemukan."; return; }
@@ -281,6 +306,7 @@
      const selected = routeOptions[selectedRouteIdx].route;
      setSummary(selected);
      renderRoute(selected, ol);
+     updateFareWarning(selected);
    }
 
   // --- Navigasi live: watchPosition -> snap maju-only -> highlight halte aktif ---

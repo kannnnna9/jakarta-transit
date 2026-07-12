@@ -21,6 +21,9 @@
     button:active { opacity:.85; }
     .err { color:#b00020; font-size:.9rem; margin-top:.6rem; min-height:1.2rem; }
     .summary { font-weight:700; margin:1.2rem 0 .4rem; }
+    .fare-warn { font-size:.9rem; color:#8a5a00; background:#fff7e6; border:1px solid #f0d28a;
+                 border-radius:8px; padding:.55rem .7rem; margin:.2rem 0 .8rem; line-height:1.4; }
+    .fare-warn:empty { display:none; }
     ol { list-style:none; padding:0; margin:0; }
     li { padding:.35rem 0; border-bottom:1px solid var(--line); }
     li.hop { color:var(--accent); font-weight:600; }
@@ -68,6 +71,7 @@
   <button id="go">Cari rute</button>
   <div class="err" id="err"></div>
   <div class="summary" id="summary"></div>
+  <div class="fare-warn" id="fare-warn"></div>
   <button id="nav" class="ghost" type="button" hidden>🧭 Mulai navigasi</button>
   <small class="hint" id="navstat"></small>
   <ol id="result"></ol>

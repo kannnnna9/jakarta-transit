@@ -370,17 +370,44 @@
  const appJs = fs.readFileSync(path.join(__dirname, "web", "app.js"), "utf8");
  const indexHtml = fs.readFileSync(path.join(__dirname, "web", "index.html"), "utf8");
  const swJs = fs.readFileSync(path.join(__dirname, "web", "sw.js"), "utf8");
- assert.ok(appJs.includes('APP_VERSION = "1.11.1"'), "app.js must define APP_VERSION 1.11.1");
- for (const label of ["Tarif terendah", "Paling simpel", "Jarak terpendek", "Alternatif"]) {
-   assert.ok(appJs.includes(label), "app.js must render " + label);
- }
- assert.ok(!appJs.includes("Math.random"), "v1.11 removes random surprise route selection");
- assert.ok(!appJs.includes("Kejutan (beta)"), "v1.11 removes Kejutan label");
- assert.ok(!appJs.includes("Waktu tercepat"), "v1.9 removes Waktu tercepat label");
- assert.ok(!appJs.includes("Minim jalan-kaki"), "v1.9 removes Minim jalan-kaki label");
- assert.ok(indexHtml.includes('id="service-filter"'), "index.html must expose service filter");
- assert.ok(indexHtml.includes('id="app-version"'), "index.html must expose version badge");
- assert.ok(swJs.includes("jt-v14"), "service worker cache must bump to jt-v14");
- console.log("v1.11 goals ok");
+  assert.ok(appJs.includes('APP_VERSION = "1.12.0"'), "app.js must define APP_VERSION 1.12.0");
+  for (const label of ["Tarif terendah", "🌟 Rekomendasi", "Jarak terpendek", "Alternatif"]) {
+    assert.ok(appJs.includes(label), "app.js must render " + label);
+  }
+  assert.ok(!appJs.includes("Paling simpel"), "v1.12 renames Paling simpel → Rekomendasi");
+  assert.ok(!appJs.includes("Math.random"), "v1.11 removes random surprise route selection");
+  assert.ok(!appJs.includes("Kejutan (beta)"), "v1.11 removes Kejutan label");
+  assert.ok(!appJs.includes("Waktu tercepat"), "v1.9 removes Waktu tercepat label");
+  assert.ok(!appJs.includes("Minim jalan-kaki"), "v1.9 removes Minim jalan-kaki label");
+  assert.ok(indexHtml.includes('id="service-filter"'), "index.html must expose service filter");
+  assert.ok(indexHtml.includes('id="app-version"'), "index.html must expose version badge");
+  assert.ok(appJs.includes("jt-v14"), "app shell cache must bump to jt-v14");
+  assert.ok(swJs.includes("jt-v15"), "service worker cache must bump to jt-v15");
+  console.log("v1.12 goals ok");
 
- console.log("test-router ok");
+  // --- 6. fareWarning: bedakan Premium vs Transfer keluar (data nyata) ---
+  const real = JSON.parse(fs.readFileSync(path.join(__dirname, "web", "data.json"), "utf8"));
+  const realIdx = buildIndex(real);
+  const PREMIUM = new Set(["PP", "PP2", "PP3"]);
+  function fareWarning(distRoute, rekomRoute, data) {
+    if (!distRoute || !rekomRoute || !data) return null;
+    const distFare = routeCost(distRoute.path, data).fare;
+    const rekomFare = routeCost(rekomRoute.path, data).fare;
+    if (!rekomRoute || distFare <= rekomFare) return null;
+    const distHasPremium = distRoute.path.some(step =>
+      step.kind === "take" && PREMIUM.has((data.fare && data.fare[step.route] && data.fare[step.route][1]) || "?"));
+    const selisih = fmtFare(distFare - rekomFare);
+    return distHasPremium
+      ? "🅿️ Pakai bus Premium — tarif tiap naik (" + selisih + " lebih mahal dari Rekomendasi)"
+      : "🚶 Transfer keluar halte — bayar tiket 2× (" + selisih + " lebih mahal dari Rekomendasi)";
+  }
+  const pk = findGoalRoutes(real, "Pancoran Arah Barat", "Kota Kasablanka", realIdx);
+  const pkW = fareWarning(pk.dist, pk.simple, real);
+  assert.ok(pkW && pkW.includes("Premium"), "Pancoran→Kasablanka warning harus Premium, got: " + pkW);
+  const sk = findGoalRoutes(real, "Simpang Kuningan", "CSW 1", realIdx);
+  const skW = fareWarning(sk.dist, sk.simple, real);
+  assert.ok(skW && skW.includes("Transfer keluar"), "Simpang Kuningan→CSW warning harus Transfer keluar, got: " + skW);
+  assert.strictEqual(fareWarning(pk.simple, pk.simple, real), null, "fare sama → no warning");
+  console.log("v1.12 fareWarning ok");
+
+  console.log("test-router ok");

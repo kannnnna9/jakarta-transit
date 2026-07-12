@@ -8,7 +8,7 @@ Pilih halte asal + tujuan (autocomplete nama halte), lalu pilih rute berdasarkan
 
 ## Status
 
-- **v1.11.0** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). Tab Alternatif deterministik: bisa jalan akses sampai 400 m ke halte tetangga, contoh Simpang Kuningan → Underpass Kuningan → route 6 ke Ragunan.
+- **v1.12.0** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). Tab 📏 Jarak dapat warning tarif yang menyebut sebab mahalnya (Premium vs transfer keluar halte); label tab "Paling simpel" → "🌟 Rekomendasi".
 - Sisa: regenerate APK di PWABuilder saat mau (ikon sekarang placeholder "JT").
 - Roadmap berikutnya (testing/tuning dunia nyata): [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
