@@ -26,6 +26,7 @@ WALK_M = 150  # keep in sync with build-data.py WALK_M
 ACCESS_M = 400
 WEIGHT = 8    # biaya 1 transfer = WEIGHT halte; transfer dipilih hanya kalau hemat >WEIGHT halte
 STOP_M = 40
+TOL_RECOMMEND_M = 2000  # Model C: toleransi jarak di atas D_min
 DIST_TRANSFER_M = 200
 BUS_SPEED_MS = 6
 TRANSFER_WAIT_S = 240
@@ -532,10 +533,93 @@ def find_goal(origin, dest, data, goal, allowed=None):
     return None
 
 
+def find_recommend(origin, dest, data, allowed=None):
+    """Model C: D_min lalu min-(transfer, fare, dist) dgn cap D_min + TOL."""
+    dmin = find_goal(origin, dest, data, "dist", allowed)
+    if dmin is None:
+        return None
+    dmin_m = ride_m(dmin[2], data) + _walk_m(dmin[2])
+    cap = dmin_m + TOL_RECOMMEND_M
+
+    stop_name, name_stops, _rn, ride, routes_at = data[:5]
+    xfer = data[5]; dist = data[7]; fare_table = data[8]; rtype = data[9]
+    stop_lat = data[10]; stop_lon = data[11]
+    o, d = origin.lower(), dest.lower()
+    origins = sorted(s for s, n in stop_name.items() if o in n.lower())
+    dests = {s for s, n in stop_name.items() if d in n.lower()}
+    if not origins or not dests:
+        return None
+
+    # heap: (transfers, fare, cost, seq, stop, route, brt_paid, ridden, path)
+    seq = count(); pq = []
+    for s in origins:
+        heapq.heappush(pq, (0, 0, 0, next(seq), s, None, False, False,
+                            [("board", s, None, None, None)]))
+    best = defaultdict(list)
+    seen = 0
+    while pq and seen < MAX_GOAL_STATES:
+        seen += 1
+        tr, fare, cost, _sq, stop, route, brt_paid, ridden, path = heapq.heappop(pq)
+        if cost > cap:
+            continue
+        key = (stop, route)
+        if any(of <= fare and oc <= cost for of, oc in best[key]):
+            continue
+        best[key].append((fare, cost))
+        if stop in dests:
+            return tr, st_from_path(path), path, cost
+        if route is not None:
+            for nxt in sorted(ride[route].get(stop, ())):
+                nd = cost + _edge_dist(dist, route, stop, nxt)
+                if nd > cap:
+                    continue
+                heapq.heappush(pq, (tr, fare, nd, next(seq), nxt, route, brt_paid, True,
+                                    path + [("ride", nxt, route, None, None)]))
+        if route is not None and not ridden:
+            continue
+        for s2, xtype, xdist in _targets(stop, stop_name, name_stops, xfer, stop_lat, stop_lon):
+            if route is None and xtype != "s" and s2 not in dests:
+                continue
+            ntr = tr if route is None else tr + 1
+            if ntr > MAX_GOAL_TRANSFERS:
+                continue
+            walk_add = (xdist or 0) if xtype == "w" else 0
+            nd = cost + walk_add
+            if nd > cap:
+                continue
+            if s2 in dests and s2 != stop:
+                heapq.heappush(pq, (ntr, fare, nd, next(seq), s2, None, brt_paid, False,
+                                    path + [("xfer", s2, None, xtype, xdist)]))
+                continue
+            for r2 in sorted(r for r in routes_at[s2] if _allowed(r, rtype, allowed)):
+                if r2 == route and s2 == stop:
+                    continue
+                add, paid = _fare_after_take(fare_table, r2, xtype, brt_paid)
+                heapq.heappush(pq, (ntr, fare + add, nd, next(seq), s2, r2, paid, False,
+                                    path + [("take", s2, r2, xtype, xdist)]))
+    return None
+
+
+def st_from_path(path):
+    """Hitung jumlah stop dari path (sama kayak find_goal)."""
+    return sum(1 for k, *_ in path if k == "ride")
+
+
+def ride_m(path, data):
+    """Jarak ride total (meter) dari path."""
+    dist = data[7]
+    tot = 0
+    for i in range(1, len(path)):
+        k, stop, rt, _, _ = path[i]
+        if k == "ride":
+            tot += _edge_dist(dist, rt, path[i - 1][1], stop)
+    return tot
+
+
 def find_goals(origin, dest, data, allowed=None):
     return {
         "fare": find_goal(origin, dest, data, "fare", allowed),
-        "simple": find_goal(origin, dest, data, "simple", allowed),
+        "simple": find_recommend(origin, dest, data, allowed),
         "dist": find_goal(origin, dest, data, "dist", allowed),
     }
 

@@ -34,6 +34,21 @@
       Butuh secret `TRANSITLAND_API_KEY` di repo. App narik `data.json` baru via SW SWR.
       Manual masih bisa (workflow_dispatch / prosedur "Catatan pemeliharaan").
 
+## Known Issues (DECIDED: tunda, bukan blocker)
+- [x] **Silent "tak ada rute" di all-modes lintas-kota jauh** — ditemukan 2026-07-12.
+      `find_goal`/`shortestGoal` nyerah pas `seen` mentok `MAX_GOAL_STATES` (2jt) lalu
+      balik `None` SEOLAH tak ada rute — padahal rute ADA. Bukti: Manggarai→Kalideres
+      all-modes cap 2jt = None; cap 20jt = 3tf/17st/20.0km (identik hasil BRT-only).
+      Sebab: mode longgar (≈200 route Mikrotrans dkk) meledakkan ruang state; grafik
+      besar → cap habis sebelum sampai tujuan. **Kenapa ditunda:** cuma kena skenario
+      ekstrem (semua-angkutan + antar-terminal jauh). Pemakaian nyata (BRT-only, dalam
+      kota) TAK pernah kena — 0 laporan lapangan. **JANGAN nambal naikin cap** (bikin
+      lambat → timeout di HP, malah nurunin cap efektif; opencode sempat turunin ke 500k
+      di proto). Fix benar (kalau nanti perlu): pencarian goal-directed/A* (heuristik
+      arah tujuan) biar ketemu dalam LEBIH SEDIKIT langkah. Trigger garap: ada user
+      beneran kena, atau tab all-modes jadi default. Sampai itu: known-issue saja.
+      NB: Model C mewarisi bug ini (pakai `find_goal` yang sama) — bukan regresi baru.
+
 ## Scope v1.0
 - [x] **Scope router** — DECIDED 2026-07-05: minim-transfer lalu minim-halte, GTFS static,
       TANPA waktu tempuh / realtime. Oke buat v1. (Diskusi algoritma lanjut menyusul.)

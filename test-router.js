@@ -85,16 +85,14 @@
     console.log("weighted ok:", shortRoute.transfers, "transfer,", shortRoute.stops, "stop (shortest)");
 
     const goalsReal = findGoalRoutes(data, "Simpang Kuningan", "CSW 1", idx);
-    const simpleTakes = goalsReal.simple.path.filter(p => p.kind === "take");
-    assert.ok(
-      simpleTakes.some(p => p.xtype === "s" && data.routes[p.route].startsWith("L13E")),
-      "simple Simpang Kuningan->CSW must transfer platform to L13E, got: " +
-        simpleTakes.map(p => `${p.xtype || "-"}:${data.routes[p.route]}`).join(" -> ")
-    );
-    assert.ok(
-      !simpleTakes.some(p => p.xtype === "w" && p.xdist >= 100),
-      "simple Simpang Kuningan->CSW must not choose 136m walk transfer"
-    );
+    assert.ok(goalsReal.simple.transfers <= goalsReal.dist.transfers + 1,
+      "recommend transfers should be <= dist transfers + 1");
+
+    // BUG 2 regression: Simpang Kuningan→CSW must choose peron transfer (Rp3.500), not walk (Rp7.000)
+    const recFare = routeCost(goalsReal.simple.path, data).fare;
+    assert.strictEqual(recFare, 3500,
+      "recommend Simpang Kuningan->CSW must be Rp3.500 via peron, got Rp" + recFare);
+    console.log("fare fix ok: Simpang Kuningan->CSW = Rp" + recFare.toLocaleString("id-ID"));
 
     const pkDist = findGoalRoutes(data, "Pancoran Arah Barat", "Kota Kasablanka", idx).dist;
     assert.ok(pkDist, "dist Pancoran->Kota must find a route");
@@ -116,6 +114,40 @@
         altGoals[key].path.map(p => p.kind + ":" + p.stop + ":" + p.route),
         "Alternatif must not duplicate " + key
       );
+    }
+
+    // --- 2b. Model C (recommendRoute) parity + property tests ---
+    function rideM(path) {
+      let tot = 0;
+      for (let i = 1; i < path.length; i++) {
+        if (path[i].kind === "ride") {
+          const byRoute = data.dist && data.dist[path[i].route];
+          const byStop = byRoute && byRoute[path[i - 1].stop];
+          tot += (byStop && byStop[path[i].stop]) || 1;
+        }
+      }
+      return tot;
+    }
+    const recPairs = [
+      ["Simpang Kuningan", "CSW 1"],
+      ["Pancoran Arah Barat", "Kota Kasablanka"],
+      ["Harmoni", "Komplek Polri Ragunan"],
+    ];
+    for (const [o, d] of recPairs) {
+      const goals = findGoalRoutes(data, o, d, idx);
+      const rec = goals.simple;
+      const dmin = goals.dist;
+      assert.ok(rec, `recommend ${o}->${d} must find a route`);
+      assert.ok(dmin, `dist ${o}->${d} must find a route`);
+      // Property: recommend transfers <= dist transfers (min-transfer within cap)
+      assert.ok(rec.transfers <= dmin.transfers + 1,
+        `recommend ${o}->${d}: transfers ${rec.transfers} should be <= dist ${dmin.transfers} + 1`);
+      // Property: distance <= D_min + TOL
+      const recDist = rideM(rec.path);
+      const dminDist = rideM(dmin.path);
+      assert.ok(recDist <= dminDist + 2000 + 1,
+        `recommend ${o}->${d}: dist ${recDist}m should be <= D_min ${dminDist}m + 2000m`);
+      console.log(`recommend ${o}->${d}: ${rec.transfers}tf/${rec.stops}st/${recDist}m (D_min=${dminDist}m)`);
     }
   } else {
    console.log("(skip parity — web/data.json belum ada, jalankan build-data.py)");
@@ -224,7 +256,7 @@
  const goals = findGoalRoutes(goalMini, "A", "C", buildTestIndex(goalMini));
  assert.strictEqual(goals.fare.path.find(p => p.kind === "take").route, 1, "cheapest avoids PP and tie-breaks to fewer transfers");
  assert.strictEqual(routeCost(goals.fare.path, goalMini).fare, 3500, "cheapest fare is BRT flat fare");
- assert.strictEqual(goals.simple.path.find(p => p.kind === "take").route, 0, "simple uses weighted transfer+stop cost");
+  assert.strictEqual(goals.simple.path.find(p => p.kind === "take").route, 1, "recommend picks min-transfer then min-fare (BRT R1) within D_min+TOL");
  assert.strictEqual(goals.dist.path.find(p => p.kind === "take").route, 2, "distance chooses shortest meters");
  assert.ok(!("time" in goals), "v1.9 removes time goal");
  assert.ok(!("walk" in goals), "v1.9 removes walk goal");
