@@ -3,6 +3,22 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.12.1] - 2026-07-12
+
+Fix leg-hantu (naik==turun stasiun sama) di tab 🔀 Alternatif.
+
+### Fixed
+
+- **Leg-hantu di tab 🔀 Alternatif.** Pasangan Simpang Kuningan → CSW 1 menampilkan leg koridor 13 palsu (naik lalu turun di halte "Tegal Mampang" yang sama, cuma geser peron) + "pindah peron" palsu, lalu L13E dari halte yang sama. Akar masalah: `pathSignature` hanya pakai route-id sehingga hop kosong dianggap "distinct" dari pemenang 3 tab lain, dan diversifikasi memilih path itu supaya beda.
+- **Sanitasi jaring pengaman di semua tab** — `sanitizePath` (JS `web/router.js`) / `sanitize_path` (Python `route.py`) membuang leg dengan `boarding_stop_id == alighting_stop_id` (stasiun bernama sama); info transfer (xtype/xdist) diwariskan ke take berikutnya supaya jalan kaki tak hilang. Diterapkan ke seluruh goal (fare/simple/dist/alternative) sebelum render.
+- **Diversifikasi Alternatif** kini sanitasi kandidat dulu, deduplikasi by signature, lalu exclude **hanya** rekomendasi utama (fare & simple) — `dist` boleh dipakai agar rute jalur-beda yang bersih (mis. koridor 9) muncul. Pair Simpang Kuningan → CSW 1 kini: koridor 9 → jalan kaki 136 m → Tegal Mampang → L13E → CSW 1 (1 transfer, tanpa koridor 13).
+- Paritas router Python (`route.py`) disamakan dengan JS (sanitasi + exclude fare/simple).
+
+### Changed
+
+- **web/app.js** cache app-shell di-bump ke `jt-v15`; `APP_VERSION` menjadi `1.12.1`.
+- **web/sw.js** cache app-shell di-bump ke `jt-v16`.
+
 ## [1.12.0] - 2026-07-12
 
 Tab 📏 Jarak dipertahankan, ditambah warning tarif yang menyebut SEBAB mahalnya.

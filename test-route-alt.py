@@ -64,7 +64,34 @@ def test_dest_exact_name():
     assert stop_name[last[1]] == "Ragunan", f"turun di halte salah: {stop_name[last[1]]!r}"
 
 
+def test_no_ghost_leg():
+    """Regresi leg-hantu: Simpang Kuningan -> CSW 1 di tab Alternatif.
+    Koridor 13 (id 31) cuma geser peron di Tegal Mampang (naik==turun stasiun
+    sama) -> tak boleh muncul. Rute benar: koridor 9 (id 45) -> jalan -> L13E."""
+    try:
+        import route as R
+        data = R.load()
+    except Exception as e:  # GTFS data belum di-fetch -> skip
+        print("test-route-alt: skip real-data (", e, ")")
+        return
+    stop_name = data[0]
+    goals = find_goals("Simpang Kuningan", "CSW 1", data, allowed={"BRT"})
+    alt = find_alternative("Simpang Kuningan", "CSW 1", data, goals, allowed={"BRT"})
+    assert alt is not None, "Alternatif Simpang Kuningan->CSW 1 hilang"
+    path = alt[2]
+    take_routes = [r for _k, _s, r, _x, _d in path if r is not None]
+    assert take_routes[0] == "9", "Alternatif harus naik koridor 9, got " + str(take_routes)
+    assert not any(r.startswith("13 ") for r in take_routes), \
+        "Alternatif TAK boleh koridor 13 (leg-hantu), got " + str(take_routes)
+    # Tak ada take yang turun di stasiun bernama sama (leg-hantu).
+    for i in range(len(path) - 1):
+        if path[i][0] == "take" and path[i + 1][0] == "ride":
+            assert stop_name[path[i][1]] != stop_name[path[i + 1][1]], \
+                "leg-hantu di " + stop_name[path[i][1]]
+
+
 if __name__ == "__main__":
     test_mini_alternative()
     test_dest_exact_name()
+    test_no_ghost_leg()
     print("test-route-alt ok")

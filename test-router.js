@@ -116,7 +116,24 @@
       );
     }
 
-    // --- 2b. Model C (recommendRoute) parity + property tests ---
+    // --- 1c. Fix leg-hantu di tab Alternatif: Simpang Kuningan -> CSW 1 ---
+  const skCsw = findGoalRoutes(data, "Simpang Kuningan", "CSW 1", idx);
+  assert.ok(skCsw.alternative, "Simpang Kuningan->CSW 1 must expose Alternatif");
+  const skPath = skCsw.alternative.path;
+  // Tak boleh ada take lalu ride turun di stasiun bernama SAMA (leg-hantu).
+  for (let i = 0; i + 1 < skPath.length; i++) {
+    const a = skPath[i], b = skPath[i + 1];
+    if (a.kind === "take" && b.kind === "ride") {
+      assert.notStrictEqual(data.stops[a.stop], data.stops[b.stop],
+        "leg-hantu: naik==turun stasiun sama di " + (data.stops[a.stop] || a.stop));
+    }
+  }
+  // Rute benar: koridor 9 -> jalan kaki -> L13E -> CSW 1 (tanpa koridor 13).
+  const skTakeRoutes = skPath.filter(p => p.kind === "take").map(p => p.route);
+  assert.ok(skTakeRoutes.includes(45), "Alternatif harus naik koridor 9, got " + JSON.stringify(skTakeRoutes.map(r => data.routes[r])));
+  assert.ok(!skTakeRoutes.includes(31), "Alternatif TAK boleh naik koridor 13 (leg-hantu), got " + JSON.stringify(skTakeRoutes.map(r => data.routes[r])));
+
+  // --- 2b. Model C (recommendRoute) parity + property tests ---
     function rideM(path) {
       let tot = 0;
       for (let i = 1; i < path.length; i++) {
@@ -370,7 +387,7 @@
  const appJs = fs.readFileSync(path.join(__dirname, "web", "app.js"), "utf8");
  const indexHtml = fs.readFileSync(path.join(__dirname, "web", "index.html"), "utf8");
  const swJs = fs.readFileSync(path.join(__dirname, "web", "sw.js"), "utf8");
-  assert.ok(appJs.includes('APP_VERSION = "1.12.0"'), "app.js must define APP_VERSION 1.12.0");
+   assert.ok(appJs.includes('APP_VERSION = "1.12.1"'), "app.js must define APP_VERSION 1.12.1");
   for (const label of ["Tarif terendah", "🌟 Rekomendasi", "Jarak terpendek", "Alternatif"]) {
     assert.ok(appJs.includes(label), "app.js must render " + label);
   }
@@ -381,8 +398,8 @@
   assert.ok(!appJs.includes("Minim jalan-kaki"), "v1.9 removes Minim jalan-kaki label");
   assert.ok(indexHtml.includes('id="service-filter"'), "index.html must expose service filter");
   assert.ok(indexHtml.includes('id="app-version"'), "index.html must expose version badge");
-  assert.ok(appJs.includes("jt-v14"), "app shell cache must bump to jt-v14");
-  assert.ok(swJs.includes("jt-v15"), "service worker cache must bump to jt-v15");
+  assert.ok(appJs.includes("jt-v15"), "app shell cache must bump to jt-v15");
+  assert.ok(swJs.includes("jt-v16"), "service worker cache must bump to jt-v16");
   console.log("v1.12 goals ok");
 
   // --- 6. fareWarning: bedakan Premium vs Transfer keluar (data nyata) ---

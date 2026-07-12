@@ -266,6 +266,39 @@ def _path_signature(path):
     return tuple(route for kind, _stop, route, _xtype, _xdist in path if kind == "take" and route is not None)
 
 
+def sanitize_path(stop_name, path):
+    """Buang leg-hantu: naik lalu turun di stasiun bernama SAMA (geser peron).
+    Informasi transfer (xtype/xdist) diwariskan ke take berikutnya. Jaring
+    pengaman umum untuk semua tab; paritas dengan web/router.js:sanitizePath."""
+    out = []
+    pending = None
+    i = 0
+    n = len(path)
+    while i < n:
+        kind, stop, route, xtype, xdist = path[i]
+        if kind == "take":
+            j = i + 1
+            while j < n and path[j][0] == "ride":
+                j += 1
+            alight = path[j - 1][1] if j - 1 > i else stop
+            if stop_name[stop] == stop_name[alight]:
+                if pending is None:
+                    pending = (xtype, xdist)
+                i = j
+                continue
+            take = (kind, stop, route, xtype, xdist)
+            if pending is not None:
+                take = (kind, stop, route, pending[0], pending[1])
+                pending = None
+            out.append(take)
+            out.extend(path[k] for k in range(i + 1, j))
+            i = j
+            continue
+        out.append(path[i])
+        i += 1
+    return out
+
+
 def _xfer_m(stop, s2, xtype, xdist, stop_lat, stop_lon):
     if xtype == "w":
         return xdist or _stop_walk_m(stop, s2, stop_lat, stop_lon)
@@ -616,11 +649,21 @@ def ride_m(path, data):
     return tot
 
 
+def _sanitize_goal(stop_name, goal):
+    if not goal:
+        return goal
+    tr, st, path, cost = goal
+    sp = sanitize_path(stop_name, path)
+    s_st = sum(1 for k, _s, _r, _x, _d in sp if k == "ride")
+    return (tr, s_st, sp, cost)
+
+
 def find_goals(origin, dest, data, allowed=None):
+    stop_name = data[0]
     return {
-        "fare": find_goal(origin, dest, data, "fare", allowed),
-        "simple": find_recommend(origin, dest, data, allowed),
-        "dist": find_goal(origin, dest, data, "dist", allowed),
+        "fare": _sanitize_goal(stop_name, find_goal(origin, dest, data, "fare", allowed)),
+        "simple": _sanitize_goal(stop_name, find_recommend(origin, dest, data, allowed)),
+        "dist": _sanitize_goal(stop_name, find_goal(origin, dest, data, "dist", allowed)),
     }
 
 
@@ -696,15 +739,28 @@ def find_alternative(origin, dest, data, goals_result, radius=ACCESS_M, allowed=
 
     if not solutions:
         return None
-    fewest_stops = min(st for _tr, st, _wm, _path in solutions)
+    # Sanitasi DULU tiap kandidat agar leg-hantu tak dipilih cuma karena "beda".
+    cleaned = []
+    seen_sig = set()
+    for tr, st, wm, path in solutions:
+        s_path = sanitize_path(stop_name, path)
+        sig = _path_signature(s_path)
+        if sig in seen_sig:
+            continue
+        seen_sig.add(sig)
+        s_st = sum(1 for k, _s, _r, _x, _d in s_path if k == "ride")
+        cleaned.append((tr, s_st, wm, s_path))
+    fewest_stops = min(st for _tr, st, _wm, _path in cleaned)
+    # Exclude hanya rekomendasi utama (fare & simple); `dist` boleh dipakai
+    # (paritas web/router.js).
     goal_sigs = {
-        _path_signature(goal[2])
-        for goal in (goals_result or {}).values()
-        if goal
+        _path_signature(sanitize_path(stop_name, goals_result[k][2]))
+        for k in ("fare", "simple")
+        if goals_result and goals_result.get(k)
     }
     sane = [
         (tr, st, path)
-        for tr, st, _wm, path in solutions
+        for tr, st, _wm, path in cleaned
         if st <= fewest_stops * 1.5 and _path_signature(path) not in goal_sigs
     ]
     if not sane:

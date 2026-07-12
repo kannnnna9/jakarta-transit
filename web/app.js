@@ -1,8 +1,8 @@
 "use strict";
 // DOM/render. Router murni ada di Router (router.js). File ini TIDAK berisi logika rute.
 (function () {
-  const APP_VERSION = "1.12.0";
-  const CACHE_NAME = "jt-v14";
+const APP_VERSION = "1.12.1";
+const CACHE_NAME = "jt-v15";
   const { buildIndex, findGoalRoutes } = window.Router;
   const { suggest } = window.Suggest;
   const { pathToLegs } = window.Legs;

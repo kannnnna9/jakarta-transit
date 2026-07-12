@@ -8,7 +8,8 @@ Pilih halte asal + tujuan (autocomplete nama halte), lalu pilih rute berdasarkan
 
 ## Status
 
-- **v1.12.0** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). Tab 📏 Jarak dapat warning tarif yang menyebut sebab mahalnya (Premium vs transfer keluar halte); label tab "Paling simpel" → "🌟 Rekomendasi".
+- **v1.12.1** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). Fix leg-hantu (naik==turun stasiun sama) di tab 🔀 Alternatif — sanitasi umum di semua tab; Simpang Kuningan → CSW 1 kini koridor 9 → jalan kaki → L13E, tanpa koridor 13 palsu.
+- **v1.12.0** — Tab 📏 Jarak dapat warning tarif yang menyebut sebab mahalnya (Premium vs transfer keluar halte); label tab "Paling simpel" → "🌟 Rekomendasi".
 - Sisa: regenerate APK di PWABuilder saat mau (ikon sekarang placeholder "JT").
 - Roadmap berikutnya (testing/tuning dunia nyata): [`docs/ROADMAP.md`](docs/ROADMAP.md).
 

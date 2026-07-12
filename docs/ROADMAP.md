@@ -239,6 +239,19 @@ DECIDED + shipped:
 
 ---
 
+## v1.12.1 — Fix leg-hantu tab Alternatif — SHIPPED 2026-07-12
+
+Task: [`docs/TASK-alternatif-leg-hantu.md`](TASK-alternatif-leg-hantu.md).
+
+DECIDED + shipped:
+- **Akar masalah**: `pathSignature` hanya pakai route-id, jadi leg kosong (naik==turun di stasiun bernama sama, cuma geser peron — mis. koridor 13 di "Tegal Mampang") membuat path terlihat "distinct" dari pemenang 3 tab lain, dan diversifikasi Alternatif justru memilihnya.
+- **Sanitasi umum** `sanitizePath`/`sanitize_path` buang leg `boarding==alighting` (stasiun sama), wariskan transfer ke take berikutnya; diterapkan ke semua goal (fare/simple/dist/alternative) sebelum render.
+- **Diversifikasi** kini sanitasi + dedup kandidat dulu, lalu exclude **hanya** fare & simple (dist boleh dipakai) → Simpang Kuningan → CSW 1 = koridor 9 → jalan 136 m → L13E → CSW 1, tanpa koridor 13.
+- **Parity route.py + web/router.js** dijaga; test `test-router.js` + `test-route-alt.py` hijau.
+- `APP_VERSION` 1.12.1, cache `jt-v15` (app) / `jt-v16` (sw).
+
+---
+
 ## Tuning knobs (dunia nyata — jangan hard-freeze)
 - Proximity transfer: **150 m** default. GPS/jarak halte Jakarta padat → coba 100–200 m.
 - ACCESS_M alternatif: **400 m** default. Kalibrasi kalau ada bukti orang rela jalan lebih jauh/lebih pendek.

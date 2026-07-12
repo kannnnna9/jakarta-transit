@@ -139,6 +139,57 @@
     return path.filter((p) => p.kind === "take" && p.route != null).map((p) => p.route).join(",");
   }
 
+  // Buang "leg-hantu": naik lalu turun di stasiun bernama SAMA (nol pindah stasiun,
+  // cuma geser peron). Transfer masuk-stasiun (xtype/xdist) diwariskan ke take
+  // berikutnya supaya jalan kaki tak hilang. Berlaku untuk semua tab (jaring pengaman).
+  function sanitizePath(data, path) {
+    if (!path || !path.length) return path;
+    const out = [];
+    let pendingXfer = null;
+    let i = 0;
+    while (i < path.length) {
+      const step = path[i];
+      if (step.kind === "take") {
+        let j = i + 1;
+        while (j < path.length && path[j].kind === "ride") j++;
+        const alightStop = j - 1 > i ? path[j - 1].stop : step.stop;
+        const ghost = data.stops[step.stop] === data.stops[alightStop];
+        if (ghost) {
+          if (!pendingXfer) pendingXfer = { xtype: step.xtype, xdist: step.xdist };
+          i = j;
+          continue;
+        }
+        const take = Object.assign({}, step);
+        if (pendingXfer) {
+          take.xtype = pendingXfer.xtype;
+          take.xdist = pendingXfer.xdist;
+          pendingXfer = null;
+        }
+        out.push(take);
+        for (let k = i + 1; k < j; k++) out.push(path[k]);
+        i = j;
+        continue;
+      }
+      out.push(step);
+      i++;
+    }
+    return out;
+  }
+
+  function pathTransfers(path) {
+    return Math.max(0, path.filter((p) => p.kind === "take").length - 1);
+  }
+
+  function pathStops(path) {
+    return path.filter((p) => p.kind === "ride").length;
+  }
+
+  function sanitizeRoute(data, res) {
+    if (!res || !res.path) return res;
+    const path = sanitizePath(data, res.path);
+    return Object.assign({}, res, { path, transfers: pathTransfers(path), stops: pathStops(path) });
+  }
+
   function findRoute(data, originName, destName, index, paretoLimit = 3, allowedRtypes) {
     const { nameStops, routesAt } = index || buildIndex(data);
     const origins = nameStops.get(originName);
@@ -592,9 +643,24 @@
     }
 
     if (!solutions.length) return null;
-    const fewestStops = Math.min(...solutions.map((s) => s.stops));
-    const goalSigs = new Set(["fare", "simple", "dist"].map((k) => goals[k] && pathSignature(goals[k].path)).filter(Boolean));
-    const sane = solutions
+    // Sanitasi tiap kandidat DULU: leg-hantu (naik==turun stasiun sama) dibuang
+    // agar diversifikasi tak pernah memilih path yang "beda" cuma karena hop kosong.
+    const cleaned = solutions.map((s) => sanitizeRoute(data, s));
+    // Dedup kandidat berdasarkan tanda-tangan setelah disanitasi.
+    const seenSig = new Set();
+    const uniq = [];
+    for (const s of cleaned) {
+      const sig = pathSignature(s.path);
+      if (seenSig.has(sig)) continue;
+      seenSig.add(sig);
+      uniq.push(s);
+    }
+    const fewestStops = Math.min(...uniq.map((s) => s.stops));
+    // Exclude hanya rekomendasi utama (fare & simple). `dist` boleh dipakai:
+    // strategi jalur-beda yang bersih (mis. koridor 9) sering berimpit dengan dist,
+    // dan itu jauh lebih baik daripada memfabrikasi leg supaya "beda".
+    const goalSigs = new Set(["fare", "simple"].map((k) => goals[k] && pathSignature(sanitizePath(data, goals[k].path))).filter(Boolean));
+    const sane = uniq
       .filter((s) => s.stops <= fewestStops * 1.5 && !goalSigs.has(pathSignature(s.path)))
       .map(({ transfers, stops, path }) => ({ transfers, stops, path }));
     sane.sort((a, b) =>
@@ -614,8 +680,12 @@
       pareto: findRoute(data, originName, destName, index, 3, allowedRtypes),
     };
     goals.alternative = findAlternative(data, originName, destName, index, goals);
+    // Jaring pengaman umum: buang leg-hantu (naik==turun stasiun sama) di SEMUA tab.
+    for (const k of ["fare", "simple", "dist", "alternative"]) {
+      if (goals[k]) goals[k] = sanitizeRoute(data, goals[k]);
+    }
     return goals;
   }
 
-  return { MinHeap, buildIndex, findRoute, findGoalRoutes };
+  return { MinHeap, buildIndex, findRoute, findGoalRoutes, sanitizePath };
 });
