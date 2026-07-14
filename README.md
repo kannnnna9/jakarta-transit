@@ -8,6 +8,7 @@ Pilih halte asal + tujuan (autocomplete nama halte), lalu pilih rute berdasarkan
 
 ## Status
 
+- **v1.12.2** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). Bust cache app-shell paksa (`jt-v17`) + sinkron nama cache app.js/sw.js — pengguna yang masih lihat rute lama (router basi) auto-dapat versi benar tanpa clear cache manual.
 - **v1.12.1** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). Fix leg-hantu (naik==turun stasiun sama) di tab 🔀 Alternatif — sanitasi umum di semua tab; Simpang Kuningan → CSW 1 kini koridor 9 → jalan kaki → L13E, tanpa koridor 13 palsu.
 - **v1.12.0** — Tab 📏 Jarak dapat warning tarif yang menyebut sebab mahalnya (Premium vs transfer keluar halte); label tab "Paling simpel" → "🌟 Rekomendasi".
 - Sisa: regenerate APK di PWABuilder saat mau (ikon sekarang placeholder "JT").

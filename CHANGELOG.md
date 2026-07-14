@@ -3,6 +3,20 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.12.2] - 2026-07-13
+
+Bust cache app-shell paksa untuk semua pengguna (rute janggal dari router basi).
+
+### Fixed
+
+- **Cache app-shell basi.** Sebagian pengguna masih melihat rute lama hasil router versi sebelum fix leg-hantu (mis. tab 🚩 Tarif Underpass Kuningan → Cawang menampilkan koridor 9 + pindah peron Simpang Kuningan + backtrack Petukangan). Kode & data live sudah benar; penyebabnya app-shell (`router.js` dll) di-serve cache-first dari Service Worker lama.
+- **Sinkron nama cache app.js vs sw.js.** `web/app.js` mendaftarkan SW dengan `sw.js?cache=<CACHE_NAME>`, jadi cache **efektif** ditentukan `CACHE_NAME` di app.js — bukan default `sw.js`. Di 1.12.1 keduanya sempat mismatch (app.js `jt-v15`, sw.js `jt-v16`). Kini keduanya `jt-v17`.
+
+### Changed
+
+- **web/app.js** `CACHE_NAME` di-bump ke `jt-v17`; `APP_VERSION` menjadi `1.12.2`.
+- **web/sw.js** default cache app-shell di-bump ke `jt-v17`.
+
 ## [1.12.1] - 2026-07-12
 
 Fix leg-hantu (naik==turun stasiun sama) di tab 🔀 Alternatif.
