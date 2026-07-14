@@ -254,8 +254,14 @@ def _access_stops(name, data, radius):
     stop_lon = data[11] if len(data) > 11 else {}
     origins = sorted(name_stops.get(name, ()))
     out = {}
+    has_coords = bool(stop_lat and stop_lon)
     for origin in origins:
+        out[origin] = 0
+        if not has_coords:
+            continue  # tanpa lat/lon: jangan teleport (fallback walk=1)
         for stop in sorted(stop_name):
+            if stop == origin:
+                continue
             dist = _stop_walk_m(origin, stop, stop_lat, stop_lon)
             if dist <= radius and (stop not in out or dist < out[stop]):
                 out[stop] = dist
@@ -264,6 +270,17 @@ def _access_stops(name, data, radius):
 
 def _path_signature(path):
     return tuple(route for kind, _stop, route, _xtype, _xdist in path if kind == "take" and route is not None)
+
+
+def _leg_revisits(stop_name, path, nxt):
+    """True if adding nxt to the current leg would revisit a stop name (U-turn loop)."""
+    target = stop_name[nxt]
+    for kind, stop, *_ in reversed(path):
+        if stop_name[stop] == target:
+            return True
+        if kind in ("take", "board"):
+            break
+    return False
 
 
 def sanitize_path(stop_name, path):
@@ -374,6 +391,8 @@ def find(origin, dest, data, pareto_limit=3, allowed=None):
         # ride one stop forward on current route
         if route is not None:
             for nxt in sorted(ride[route].get(stop, ())):
+                if _leg_revisits(stop_name, path, nxt):
+                    continue
                 nst = st + 1
                 new_label = (tr, nst, next(seq), path + [("ride", nxt, route, None, None)])
                 heapq.heappush(pq, (tr, nst, new_label[2], nxt, route, True, new_label))
@@ -506,15 +525,49 @@ def find_goal(origin, dest, data, goal, allowed=None):
 
     seq = count()
     pq = []
-    for s in origins:
-        path = [("board", s, None, None, None)]
-        heapq.heappush(pq, (0, 0, 0, 0, next(seq), s, None, False, False, path))
+
+    def push_goal(cost, walk_m, tr, st, stop, route, brt_paid, ridden, path):
+        # fare: Rupiah → transfer → halte → walk (waras); walk tetap di dominasi label
+        if goal == "fare":
+            heapq.heappush(pq, (cost, tr, st, walk_m, next(seq), stop, route, brt_paid, ridden, path))
+        else:
+            heapq.heappush(pq, (cost, walk_m, tr, st, next(seq), stop, route, brt_paid, ridden, path))
+
+    def pop_goal():
+        if goal == "fare":
+            cost, tr, st, walk_m, _sq, stop, route, brt_paid, ridden, path = heapq.heappop(pq)
+        else:
+            cost, walk_m, tr, st, _sq, stop, route, brt_paid, ridden, path = heapq.heappop(pq)
+        return cost, walk_m, tr, st, stop, route, brt_paid, ridden, path
+
+    if goal == "fare":
+        # Access seed 400 m: cost Rupiah 0, walk_m = jarak jalan (dominasi memfilter seed sia-sia).
+        # name_stops exact-key dulu; fallback seed dari origins substring match.
+        access = _access_stops(origin, data, ACCESS_M)
+        if not access:
+            for s in origins:
+                access[s] = 0
+
+        def access_origin(stop, walk_m):
+            matches = [s for s in origins if _stop_walk_m(s, stop, stop_lat, stop_lon) == walk_m]
+            return sorted(matches or origins)[0]
+
+        for s, walk_m in sorted(access.items(), key=lambda x: (x[1], x[0])):
+            start = access_origin(s, walk_m)
+            path = [("board", start, None, None, None)]
+            if s != start:
+                path.append(("access", s, None, "w", walk_m))
+            push_goal(0, walk_m, 0, 0, s, None, False, False, path)
+    else:
+        for s in origins:
+            path = [("board", s, None, None, None)]
+            push_goal(0, 0, 0, 0, s, None, False, False, path)
 
     best = defaultdict(list)
     seen = 0
     while pq and seen < MAX_GOAL_STATES:
         seen += 1
-        cost, walk_m, tr, st, _sq, stop, route, brt_paid, ridden, path = heapq.heappop(pq)
+        cost, walk_m, tr, st, stop, route, brt_paid, ridden, path = pop_goal()
         key = (stop, route, brt_paid) if goal == "fare" else (stop, route)
         if any(_dominates_goal(old, (cost, walk_m, tr, st)) for old in best[key]):
             continue
@@ -525,10 +578,11 @@ def find_goal(origin, dest, data, goal, allowed=None):
 
         if route is not None:
             for nxt in sorted(ride[route].get(stop, ())):
+                if _leg_revisits(stop_name, path, nxt):
+                    continue
                 add = _edge_dist(dist, route, stop, nxt) if goal == "dist" else (STOP_M if goal == "simple" else 0)
                 npath = path + [("ride", nxt, route, None, None)]
-                nsq = next(seq)
-                heapq.heappush(pq, (cost + add, walk_m, tr, st + 1, nsq, nxt, route, brt_paid, True, npath))
+                push_goal(cost + add, walk_m, tr, st + 1, nxt, route, brt_paid, True, npath)
 
         if route is not None and not ridden:
             continue
@@ -545,8 +599,7 @@ def find_goal(origin, dest, data, goal, allowed=None):
                 xcost = walk_add + transfer_cost
             if s2 in dests and s2 != stop:
                 npath = path + [("xfer", s2, None, xtype, xdist)]
-                nsq = next(seq)
-                heapq.heappush(pq, (cost + xcost, walk_m + walk_add, ntr, st, nsq, s2, None, brt_paid, False, npath))
+                push_goal(cost + xcost, walk_m + walk_add, ntr, st, s2, None, brt_paid, False, npath)
                 continue
             for r2 in sorted(r for r in routes_at[s2] if _allowed(r, rtype, allowed)):
                 if r2 == route and s2 == stop:
@@ -561,8 +614,7 @@ def find_goal(origin, dest, data, goal, allowed=None):
                 if ntr > MAX_GOAL_TRANSFERS:
                     continue
                 npath = path + [("take", s2, r2, xtype, xdist)]
-                nsq = next(seq)
-                heapq.heappush(pq, (cost + add, walk_m + walk_add, ntr, st, nsq, s2, r2, paid, False, npath))
+                push_goal(cost + add, walk_m + walk_add, ntr, st, s2, r2, paid, False, npath)
     return None
 
 
@@ -603,6 +655,8 @@ def find_recommend(origin, dest, data, allowed=None):
             return tr, st_from_path(path), path, cost
         if route is not None:
             for nxt in sorted(ride[route].get(stop, ())):
+                if _leg_revisits(stop_name, path, nxt):
+                    continue
                 nd = cost + _edge_dist(dist, route, stop, nxt)
                 if nd > cap:
                     continue
@@ -711,6 +765,8 @@ def find_alternative(origin, dest, data, goals_result, radius=ACCESS_M, allowed=
 
         if route is not None:
             for nxt in sorted(ride[route].get(stop, ())):
+                if _leg_revisits(stop_name, path, nxt):
+                    continue
                 npath = path + [("ride", nxt, route, None, None)]
                 nsq = next(seq)
                 heapq.heappush(pq, (cost + STOP_M, walk_m, tr, st + 1, nsq, nxt, route, True, npath))

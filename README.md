@@ -8,6 +8,7 @@ Pilih halte asal + tujuan (autocomplete nama halte), lalu pilih rute berdasarkan
 
 ## Status
 
+- **v1.14.0** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). Guard no-revisit bunuh leg U-turn (bus muter loop); goal 🚩 Tarif dapat access seed 400 m. BRT-only Underpass Kuningan → Cawang tab Tarif = jalan ~300 m → koridor 9 → Cawang (Rp3.500). Cache `jt-v19`.
 - **v1.13.0** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). App-shell jadi **network-first** (`jt-v18`): online selalu versi terbaru, offline fallback cache. Update rilis nyampe otomatis — tak perlu clear cache Chrome / regen APK tiap rilis lagi.
 - **v1.12.2** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). Bust cache app-shell paksa (`jt-v17`) + sinkron nama cache app.js/sw.js — pengguna yang masih lihat rute lama (router basi) auto-dapat versi benar tanpa clear cache manual.
 - **v1.12.1** — SHIPPED (lihat [`CHANGELOG.md`](CHANGELOG.md)). Fix leg-hantu (naik==turun stasiun sama) di tab 🔀 Alternatif — sanitasi umum di semua tab; Simpang Kuningan → CSW 1 kini koridor 9 → jalan kaki → L13E, tanpa koridor 13 palsu.

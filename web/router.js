@@ -126,8 +126,12 @@
   function accessStops(data, originName, radius, nameStops) {
     const origins = Array.from(nameStops.get(originName) || []).sort((a, b) => a - b);
     const out = new Map();
+    const hasCoords = !!(data.lat && data.lon);
     for (const origin of origins) {
+      out.set(origin, 0);
+      if (!hasCoords) continue; // tanpa lat/lon: jangan "teleport" (stopWalkM fallback=1)
       for (let stop = 0; stop < data.stops.length; stop++) {
+        if (stop === origin) continue;
         const dist = stopWalkM(data, origin, stop);
         if (dist <= radius && (!out.has(stop) || dist < out.get(stop))) out.set(stop, dist);
       }
@@ -137,6 +141,17 @@
 
   function pathSignature(path) {
     return path.filter((p) => p.kind === "take" && p.route != null).map((p) => p.route).join(",");
+  }
+
+  // true kalau menambah nxt ke leg berjalan membuat nama halte berulang (bus muter balik)
+  function legRevisits(data, path, nxt) {
+    const target = data.stops[nxt];
+    for (let k = path.length - 1; k >= 0; k--) {
+      const p = path[k];
+      if (data.stops[p.stop] === target) return true;
+      if (p.kind === "take" || p.kind === "board") break;
+    }
+    return false;
   }
 
   // Buang "leg-hantu": naik lalu turun di stasiun bernama SAMA (nol pindah stasiun,
@@ -269,6 +284,7 @@
       if (cur.route !== null) {
         const nexts = edges[cur.route] && edges[cur.route][cur.stop];
         if (nexts) for (const nx of nexts) {
+          if (legRevisits(data, cur.path, nx)) continue;
           heapPush({ tr: cur.tr, st: cur.st + 1, seq: seq++, stop: nx, route: cur.route,
                      ridden: true,
                      path: cur.path.concat([{ kind: "ride", stop: nx, route: cur.route, xtype: null }]) });
@@ -313,6 +329,12 @@
 
   function cmpLabel(a, b) {
     return (a.cost - b.cost) || (a.walkM - b.walkM) || (a.tr - b.tr) || (a.st - b.st) || (a.seq - b.seq);
+  }
+
+  // Goal fare: Rupiah dulu, lalu transfer/halte (waras), walkM terakhir.
+  // walkM tetap di dominasi label supaya seed akses 400 m tak "teleport gratis".
+  function cmpFareLabel(a, b) {
+    return (a.cost - b.cost) || (a.tr - b.tr) || (a.st - b.st) || (a.walkM - b.walkM) || (a.seq - b.seq);
   }
 
   function fareInfo(data, route) {
@@ -364,25 +386,25 @@
     return [add, paid];
   }
 
-  function heapPush(heap, x) {
+  function heapPush(heap, x, cmp = cmpLabel) {
     heap.push(x);
     let i = heap.length - 1;
     while (i > 0) {
       const p = (i - 1) >> 1;
-      if (cmpLabel(heap[i], heap[p]) < 0) { [heap[i], heap[p]] = [heap[p], heap[i]]; i = p; }
+      if (cmp(heap[i], heap[p]) < 0) { [heap[i], heap[p]] = [heap[p], heap[i]]; i = p; }
       else break;
     }
   }
 
-  function heapPop(heap) {
+  function heapPop(heap, cmp = cmpLabel) {
     const top = heap[0], last = heap.pop();
     if (heap.length) {
       heap[0] = last;
       let i = 0;
       while (true) {
         let l = 2 * i + 1, r = 2 * i + 2, m = i;
-        if (l < heap.length && cmpLabel(heap[l], heap[m]) < 0) m = l;
-        if (r < heap.length && cmpLabel(heap[r], heap[m]) < 0) m = r;
+        if (l < heap.length && cmp(heap[l], heap[m]) < 0) m = l;
+        if (r < heap.length && cmp(heap[r], heap[m]) < 0) m = r;
         if (m === i) break;
         [heap[i], heap[m]] = [heap[m], heap[i]];
         i = m;
@@ -404,16 +426,36 @@
 
     const heap = [];
     const best = new Map();
+    const cmp = goal === "fare" ? cmpFareLabel : cmpLabel;
     let seq = 0, seen = 0;
-    for (const s of origins) {
-      heapPush(heap, {
-        cost: 0, walkM: 0, tr: 0, st: 0, seq: seq++, stop: s, route: null, brtPaid: false, ridden: false,
-        path: [{ kind: "board", stop: s, route: null, xtype: null }],
-      });
+    if (goal === "fare") {
+      const originIds = Array.from(origins).sort((a, b) => a - b);
+      const access = accessStops(data, originName, ACCESS_M, nameStops);
+      if (!access.size) for (const s of originIds) access.set(s, 0);
+      function accessOrigin(stop, walkM) {
+        const matches = originIds.filter((s) => stopWalkM(data, s, stop) === walkM);
+        return (matches.length ? matches : originIds).sort((a, b) => a - b)[0];
+      }
+      for (const [s, walkM] of Array.from(access.entries()).sort((a, b) => (a[1] - b[1]) || (a[0] - b[0]))) {
+        const start = accessOrigin(s, walkM);
+        const path = [{ kind: "board", stop: start, route: null, xtype: null }];
+        if (s !== start) path.push({ kind: "access", stop: s, route: null, xtype: "w", xdist: walkM });
+        heapPush(heap, {
+          cost: 0, walkM, tr: 0, st: 0, seq: seq++, stop: s, route: null, brtPaid: false, ridden: false,
+          path,
+        }, cmp);
+      }
+    } else {
+      for (const s of origins) {
+        heapPush(heap, {
+          cost: 0, walkM: 0, tr: 0, st: 0, seq: seq++, stop: s, route: null, brtPaid: false, ridden: false,
+          path: [{ kind: "board", stop: s, route: null, xtype: null }],
+        }, cmp);
+      }
     }
 
     while (heap.length && seen++ < MAX_GOAL_STATES) {
-      const cur = heapPop(heap);
+      const cur = heapPop(heap, cmp);
       const key = cur.stop + "," + cur.route + (goal === "fare" ? "," + (cur.brtPaid ? 1 : 0) : "");
       const old = best.get(key) || [];
       if (dominated(old, cur)) continue;
@@ -425,12 +467,13 @@
       if (cur.route !== null) {
         const nexts = data.edges[cur.route] && data.edges[cur.route][cur.stop];
         if (nexts) for (const nx of nexts) {
+          if (legRevisits(data, cur.path, nx)) continue;
           const add = goal === "dist" ? edgeDist(data, cur.route, cur.stop, nx) : (goal === "simple" ? STOP_M : 0);
           heapPush(heap, {
             cost: cur.cost + add, walkM: cur.walkM, tr: cur.tr, st: cur.st + 1, seq: seq++,
             stop: nx, route: cur.route, brtPaid: cur.brtPaid, ridden: true,
             path: cur.path.concat([{ kind: "ride", stop: nx, route: cur.route, xtype: null }]),
-          });
+          }, cmp);
         }
       }
 
@@ -449,7 +492,7 @@
             cost: cur.cost + xcost, walkM: cur.walkM + walkAdd, tr: ntr, st: cur.st, seq: seq++,
             stop: s2, route: null, brtPaid: cur.brtPaid, ridden: false,
             path: cur.path.concat([xstep]),
-          });
+          }, cmp);
           continue;
         }
         const routeList = routeListAt(routesAt, s2, data, allowedRtypes);
@@ -464,7 +507,7 @@
             cost: cur.cost + add, walkM: cur.walkM + walkAdd, tr: ntr, st: cur.st, seq: seq++,
             stop: s2, route: r2, brtPaid, ridden: false,
             path: cur.path.concat([{ kind: "take", stop: s2, route: r2, xtype, xdist }]),
-          });
+          }, cmp);
         }
       }
     }
@@ -533,6 +576,7 @@
       if (cur.route !== null) {
         const nexts = data.edges[cur.route] && data.edges[cur.route][cur.stop];
         if (nexts) for (const nx of nexts) {
+          if (legRevisits(data, cur.path, nx)) continue;
           const nd = cur.cost + edgeDist(data, cur.route, cur.stop, nx);
           if (nd > cap) continue;
           recPush(heap, { tr: cur.tr, fare: cur.fare, cost: nd, seq: seq++,
@@ -608,6 +652,7 @@
       if (cur.route !== null) {
         const nexts = data.edges[cur.route] && data.edges[cur.route][cur.stop];
         if (nexts) for (const nx of nexts) {
+          if (legRevisits(data, cur.path, nx)) continue;
           heapPush(heap, {
             cost: cur.cost + STOP_M, walkM: cur.walkM, tr: cur.tr, st: cur.st + 1, seq: seq++,
             stop: nx, route: cur.route, ridden: true,

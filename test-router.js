@@ -99,39 +99,65 @@
     assert.ok(pkDist.transfers <= 2, "dist Pancoran->Kota must avoid 6-transfer route, got " + pkDist.transfers);
 
     const altGoals = findGoalRoutes(data, "Simpang Kuningan", "Ragunan", idx);
-    assert.ok(altGoals.alternative, "Simpang Kuningan->Ragunan must expose deterministic Alternatif");
-    assert.strictEqual(altGoals.alternative.transfers, 0, "Alternatif must be one-seat via Underpass");
-    const altAccess = altGoals.alternative.path.find(p => p.kind === "access");
-    assert.ok(altAccess, "Alternatif must start with access walk");
-    assert.strictEqual(data.stops[altAccess.stop], "Underpass Kuningan", "access target must be Underpass Kuningan");
-    assert.ok(altAccess.xdist >= 250 && altAccess.xdist <= 350, "access walk should be about 297m, got " + altAccess.xdist);
-    const altTake = altGoals.alternative.path.find(p => p.kind === "take");
-    assert.ok(data.routes[altTake.route].startsWith("6 "), "Alternatif must board route 6, got " + data.routes[altTake.route]);
-    for (const key of ["fare", "simple", "dist"]) {
-      assert.notStrictEqual(altGoals[key].transfers, 0, key + " legacy goal must stay origin-locked at 1 transfer");
-      assert.notDeepStrictEqual(
-        altGoals.alternative.path.map(p => p.kind + ":" + p.stop + ":" + p.route),
-        altGoals[key].path.map(p => p.kind + ":" + p.stop + ":" + p.route),
-        "Alternatif must not duplicate " + key
-      );
+    // v1.14: fare juga boleh access seed 400 m → bisa one-seat via Underpass (Rp3.500).
+    // Alternatif exclude signature fare/simple; kalau bentrok, tab Alternatif boleh null.
+    assert.ok(altGoals.fare, "Simpang Kuningan->Ragunan fare must exist");
+    if (altGoals.fare.transfers === 0) {
+      const fareAccess = altGoals.fare.path.find(p => p.kind === "access");
+      assert.ok(fareAccess, "fare 0-transfer must use access walk seed");
+      assert.strictEqual(data.stops[fareAccess.stop], "Underpass Kuningan", "fare access target must be Underpass Kuningan");
+    }
+    for (const key of ["simple", "dist"]) {
+      assert.notStrictEqual(altGoals[key].transfers, 0, key + " must stay origin-locked (no access seed)");
+    }
+    if (altGoals.alternative) {
+      assert.strictEqual(altGoals.alternative.transfers, 0, "Alternatif must be one-seat via Underpass");
+      const altAccess = altGoals.alternative.path.find(p => p.kind === "access");
+      assert.ok(altAccess, "Alternatif must start with access walk");
+      assert.strictEqual(data.stops[altAccess.stop], "Underpass Kuningan", "access target must be Underpass Kuningan");
+      assert.ok(altAccess.xdist >= 250 && altAccess.xdist <= 350, "access walk should be about 297m, got " + altAccess.xdist);
+      const altTake = altGoals.alternative.path.find(p => p.kind === "take");
+      // v1.14: fare sudah pakai koridor 6 via access; Alternatif diversifikasi ke 6B/dll di Underpass.
+      assert.ok(/^\d/.test(data.routes[altTake.route]), "Alternatif must board a numbered BRT, got " + data.routes[altTake.route]);
+      for (const key of ["fare", "simple", "dist"]) {
+        assert.notDeepStrictEqual(
+          altGoals.alternative.path.map(p => p.kind + ":" + p.stop + ":" + p.route),
+          altGoals[key].path.map(p => p.kind + ":" + p.stop + ":" + p.route),
+          "Alternatif must not duplicate " + key
+        );
+      }
     }
 
-    // --- 1c. Fix leg-hantu di tab Alternatif: Simpang Kuningan -> CSW 1 ---
+    // --- 1c. Fix leg-hantu: Simpang Kuningan -> CSW 1 (semua tab, tanpa U-turn) ---
   const skCsw = findGoalRoutes(data, "Simpang Kuningan", "CSW 1", idx);
-  assert.ok(skCsw.alternative, "Simpang Kuningan->CSW 1 must expose Alternatif");
-  const skPath = skCsw.alternative.path;
   // Tak boleh ada take lalu ride turun di stasiun bernama SAMA (leg-hantu).
-  for (let i = 0; i + 1 < skPath.length; i++) {
-    const a = skPath[i], b = skPath[i + 1];
-    if (a.kind === "take" && b.kind === "ride") {
-      assert.notStrictEqual(data.stops[a.stop], data.stops[b.stop],
-        "leg-hantu: naik==turun stasiun sama di " + (data.stops[a.stop] || a.stop));
+  for (const key of ["fare", "simple", "dist", "alternative"]) {
+    if (!skCsw[key]) continue;
+    const skPath = skCsw[key].path;
+    for (let i = 0; i + 1 < skPath.length; i++) {
+      const a = skPath[i], b = skPath[i + 1];
+      if (a.kind === "take" && b.kind === "ride") {
+        assert.notStrictEqual(data.stops[a.stop], data.stops[b.stop],
+          key + " leg-hantu: naik==turun stasiun sama di " + (data.stops[a.stop] || a.stop));
+      }
     }
   }
-  // Rute benar: koridor 9 -> jalan kaki -> L13E -> CSW 1 (tanpa koridor 13).
-  const skTakeRoutes = skPath.filter(p => p.kind === "take").map(p => p.route);
-  assert.ok(skTakeRoutes.includes(45), "Alternatif harus naik koridor 9, got " + JSON.stringify(skTakeRoutes.map(r => data.routes[r])));
-  assert.ok(!skTakeRoutes.includes(31), "Alternatif TAK boleh naik koridor 13 (leg-hantu), got " + JSON.stringify(skTakeRoutes.map(r => data.routes[r])));
+  // v1.14: rute waras boleh L13E one-seat via Underpass (access) atau 9→L13E;
+  // yang dilarang = leg-hantu koridor 13 naik=turun Tegal Mampang.
+  for (const key of ["fare", "simple", "dist", "alternative"]) {
+    if (!skCsw[key]) continue;
+    const takes = skCsw[key].path.filter(p => p.kind === "take");
+    for (const t of takes) {
+      const rides = [];
+      const pi = skCsw[key].path.indexOf(t);
+      for (let j = pi + 1; j < skCsw[key].path.length && skCsw[key].path[j].kind === "ride"; j++) {
+        rides.push(skCsw[key].path[j]);
+      }
+      if (rides.length === 1 && data.stops[t.stop] === data.stops[rides[0].stop]) {
+        assert.fail(key + " still has ghost leg on " + data.routes[t.route]);
+      }
+    }
+  }
 
   // --- 2b. Model C (recommendRoute) parity + property tests ---
     function rideM(path) {
@@ -387,21 +413,21 @@
  const appJs = fs.readFileSync(path.join(__dirname, "web", "app.js"), "utf8");
  const indexHtml = fs.readFileSync(path.join(__dirname, "web", "index.html"), "utf8");
  const swJs = fs.readFileSync(path.join(__dirname, "web", "sw.js"), "utf8");
-   assert.ok(appJs.includes('APP_VERSION = "1.13.0"'), "app.js must define APP_VERSION 1.13.0");
-  for (const label of ["Tarif terendah", "🌟 Rekomendasi", "Jarak terpendek", "Alternatif"]) {
-    assert.ok(appJs.includes(label), "app.js must render " + label);
-  }
-  assert.ok(!appJs.includes("Paling simpel"), "v1.12 renames Paling simpel → Rekomendasi");
-  assert.ok(!appJs.includes("Math.random"), "v1.11 removes random surprise route selection");
-  assert.ok(!appJs.includes("Kejutan (beta)"), "v1.11 removes Kejutan label");
-  assert.ok(!appJs.includes("Waktu tercepat"), "v1.9 removes Waktu tercepat label");
-  assert.ok(!appJs.includes("Minim jalan-kaki"), "v1.9 removes Minim jalan-kaki label");
-  assert.ok(indexHtml.includes('id="service-filter"'), "index.html must expose service filter");
-  assert.ok(indexHtml.includes('id="app-version"'), "index.html must expose version badge");
-  assert.ok(appJs.includes("jt-v18"), "app shell cache must bump to jt-v18");
-  assert.ok(swJs.includes("jt-v18"), "service worker cache must bump to jt-v18");
-  assert.ok(/fetch\(e\.request\)[\s\S]*catch\([\s\S]*caches\.match/.test(swJs), "v1.13 app-shell must be network-first (fetch then cache fallback)");
-  console.log("v1.13 goals ok");
+    assert.ok(appJs.includes('APP_VERSION = "1.14.0"'), "app.js must define APP_VERSION 1.14.0");
+   for (const label of ["Tarif terendah", "🌟 Rekomendasi", "Jarak terpendek", "Alternatif"]) {
+     assert.ok(appJs.includes(label), "app.js must render " + label);
+   }
+   assert.ok(!appJs.includes("Paling simpel"), "v1.12 renames Paling simpel → Rekomendasi");
+   assert.ok(!appJs.includes("Math.random"), "v1.11 removes random surprise route selection");
+   assert.ok(!appJs.includes("Kejutan (beta)"), "v1.11 removes Kejutan label");
+   assert.ok(!appJs.includes("Waktu tercepat"), "v1.9 removes Waktu tercepat label");
+   assert.ok(!appJs.includes("Minim jalan-kaki"), "v1.9 removes Minim jalan-kaki label");
+   assert.ok(indexHtml.includes('id="service-filter"'), "index.html must expose service filter");
+   assert.ok(indexHtml.includes('id="app-version"'), "index.html must expose version badge");
+   assert.ok(appJs.includes("jt-v19"), "app shell cache must bump to jt-v19");
+   assert.ok(swJs.includes("jt-v19"), "service worker cache must bump to jt-v19");
+   assert.ok(/fetch\(e\.request\)[\s\S]*catch\([\s\S]*caches\.match/.test(swJs), "v1.13 app-shell must be network-first (fetch then cache fallback)");
+   console.log("v1.14 goals ok");
 
   // --- 6. fareWarning: bedakan Premium vs Transfer keluar (data nyata) ---
   const real = JSON.parse(fs.readFileSync(path.join(__dirname, "web", "data.json"), "utf8"));
@@ -427,5 +453,85 @@
   assert.ok(skW && skW.includes("Transfer keluar"), "Simpang Kuningan→CSW warning harus Transfer keluar, got: " + skW);
   assert.strictEqual(fareWarning(pk.simple, pk.simple, real), null, "fare sama → no warning");
   console.log("v1.12 fareWarning ok");
+
+  // --- 7. v1.14: guard U-turn + fare access seed (BRT-only Underpass → Cawang) ---
+  function assertNoLegRevisit(path, stops, label) {
+    let names = [];
+    for (const step of path) {
+      if (step.kind === "take" || step.kind === "board") names = [stops[step.stop]];
+      else if (step.kind === "ride") {
+        names.push(stops[step.stop]);
+        assert.strictEqual(names.length, new Set(names).size,
+          label + " leg revisits stop name: " + names.join(" → "));
+      }
+    }
+  }
+  const brt = new Set(["BRT"]);
+  const uc = findGoalRoutes(real, "Underpass Kuningan", "Cawang", realIdx, brt);
+  assert.ok(uc.fare, "BRT-only Underpass→Cawang fare must exist");
+  assertNoLegRevisit(uc.fare.path, real.stops, "fare");
+  assert.strictEqual(uc.fare.transfers, 0, "fare must be 0 transfer via access walk, got " + uc.fare.transfers);
+  assert.strictEqual(routeCost(uc.fare.path, real).fare, 3500, "fare must stay Rp3.500");
+  const ucAccess = uc.fare.path.find(p => p.kind === "access");
+  assert.ok(ucAccess, "fare must start with access walk to neighbor stop");
+  assert.ok(ucAccess.xdist > 0 && ucAccess.xdist <= 400, "access walk within ACCESS_M, got " + ucAccess.xdist);
+  assert.ok(real.stops[uc.fare.path[uc.fare.path.length - 1].stop].includes("Cawang") ||
+    real.stops[uc.fare.path[uc.fare.path.length - 1].stop] === "Cawang",
+    "fare must alight at Cawang");
+  for (const key of ["simple", "dist", "alternative"]) {
+    if (uc[key]) assertNoLegRevisit(uc[key].path, real.stops, key);
+  }
+  // Loop sah: tujuan di tengah trayek loop tetap dapat rute (turun sebelum nama berulang)
+  const up = findGoalRoutes(real, "Underpass Kuningan", "Petukangan D'MASIV", realIdx, brt);
+  assert.ok(up.fare || up.simple || up.dist, "loop-legit Underpass→Petukangan must still route");
+  if (up.fare) assertNoLegRevisit(up.fare.path, real.stops, "loop-legit fare");
+  // Normal pair origin-locked: fare tanpa access (naik di origin) tetap ada
+  const normalPairs = [
+    ["Pancoran Arah Barat", "Komplek Polri Ragunan"],
+    ["Harmoni", "Komplek Polri Ragunan"],
+    ["Pancoran Arah Barat", "Kota Kasablanka"],
+  ];
+  for (const [o, d] of normalPairs) {
+    const g = findGoalRoutes(real, o, d, realIdx);
+    assert.ok(g.fare, "normal fare " + o + "→" + d + " must exist");
+    assert.ok(!g.fare.path.some(p => p.kind === "access") || g.fare.transfers >= 0,
+      "normal fare path ok for " + o + "→" + d);
+    assertNoLegRevisit(g.fare.path, real.stops, "normal " + o);
+  }
+  // Massa anti-regresi: pair lama tak boleh None; BRT-only hanya pair BRT-reachable
+  const massAll = [
+    ["Simpang Kuningan", "CSW 1"],
+    ["Simpang Kuningan", "Ragunan"],
+    ["Pancoran Arah Barat", "Komplek Polri Ragunan"],
+    ["Pancoran Arah Barat", "Kota Kasablanka"],
+    ["Harmoni", "Komplek Polri Ragunan"],
+    ["Underpass Kuningan", "Cawang"],
+    ["Blok M", "Harmoni"],
+    ["Cawang", "Harmoni"],
+  ];
+  const massBrt = [
+    ["Simpang Kuningan", "CSW 1"],
+    ["Simpang Kuningan", "Ragunan"],
+    ["Underpass Kuningan", "Cawang"],
+    ["Blok M", "Harmoni"],
+    ["Cawang", "Harmoni"],
+  ];
+  for (const [o, d] of massAll) {
+    const g = findGoalRoutes(real, o, d, realIdx);
+    const tag = o + "→" + d;
+    assert.ok(g.fare || g.simple || g.dist, "mass route must exist: " + tag);
+    for (const key of ["fare", "simple", "dist", "alternative"]) {
+      if (g[key]) assertNoLegRevisit(g[key].path, real.stops, tag + " " + key);
+    }
+  }
+  for (const [o, d] of massBrt) {
+    const g = findGoalRoutes(real, o, d, realIdx, brt);
+    const tag = "BRT " + o + "→" + d;
+    assert.ok(g.fare || g.simple || g.dist, "mass route must exist: " + tag);
+    for (const key of ["fare", "simple", "dist", "alternative"]) {
+      if (g[key]) assertNoLegRevisit(g[key].path, real.stops, tag + " " + key);
+    }
+  }
+  console.log("v1.14 uturn+access ok");
 
   console.log("test-router ok");

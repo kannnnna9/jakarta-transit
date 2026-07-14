@@ -65,9 +65,9 @@ def test_dest_exact_name():
 
 
 def test_no_ghost_leg():
-    """Regresi leg-hantu: Simpang Kuningan -> CSW 1 di tab Alternatif.
-    Koridor 13 (id 31) cuma geser peron di Tegal Mampang (naik==turun stasiun
-    sama) -> tak boleh muncul. Rute benar: koridor 9 (id 45) -> jalan -> L13E."""
+    """Regresi leg-hantu: Simpang Kuningan -> CSW 1.
+    Tak boleh ada take lalu ride di stasiun bernama SAMA (geser peron).
+    v1.14: rute waras boleh L13E one-seat via Underpass atau 9→L13E."""
     try:
         import route as R
         data = R.load()
@@ -77,21 +77,66 @@ def test_no_ghost_leg():
     stop_name = data[0]
     goals = find_goals("Simpang Kuningan", "CSW 1", data, allowed={"BRT"})
     alt = find_alternative("Simpang Kuningan", "CSW 1", data, goals, allowed={"BRT"})
-    assert alt is not None, "Alternatif Simpang Kuningan->CSW 1 hilang"
-    path = alt[2]
-    take_routes = [r for _k, _s, r, _x, _d in path if r is not None]
-    assert take_routes[0] == "9", "Alternatif harus naik koridor 9, got " + str(take_routes)
-    assert not any(r.startswith("13 ") for r in take_routes), \
-        "Alternatif TAK boleh koridor 13 (leg-hantu), got " + str(take_routes)
-    # Tak ada take yang turun di stasiun bernama sama (leg-hantu).
-    for i in range(len(path) - 1):
-        if path[i][0] == "take" and path[i + 1][0] == "ride":
-            assert stop_name[path[i][1]] != stop_name[path[i + 1][1]], \
-                "leg-hantu di " + stop_name[path[i][1]]
+    paths = []
+    for k in ("fare", "simple", "dist"):
+        if goals.get(k):
+            paths.append((k, goals[k][2]))
+    if alt is not None:
+        paths.append(("alt", alt[2]))
+    assert paths, "Simpang Kuningan->CSW 1 hilang semua tab"
+    for label, path in paths:
+        for i in range(len(path) - 1):
+            if path[i][0] == "take" and path[i + 1][0] == "ride":
+                assert stop_name[path[i][1]] != stop_name[path[i + 1][1]], \
+                    f"{label} leg-hantu di " + stop_name[path[i][1]]
+
+
+def _assert_no_leg_revisit(stop_name, path, label):
+    names = []
+    for kind, stop, *_rest in path:
+        if kind in ("take", "board"):
+            names = [stop_name[stop]]
+        elif kind == "ride":
+            names.append(stop_name[stop])
+            assert len(names) == len(set(names)), f"{label} leg revisits: {' → '.join(names)}"
+
+
+def test_uturn_guard_and_fare_access():
+    """v1.14: BRT-only Underpass Kuningan → Cawang fare waras (no U-turn + access seed)."""
+    try:
+        import route as R
+        data = R.load()
+    except Exception as e:
+        print("test-route-alt: skip real-data (", e, ")")
+        return
+    stop_name = data[0]
+    goals = find_goals("Underpass Kuningan", "Cawang", data, allowed={"BRT"})
+    fare = goals["fare"]
+    assert fare is not None, "fare Underpass→Cawang hilang"
+    tr, st, path, cost = fare
+    _assert_no_leg_revisit(stop_name, path, "fare")
+    assert tr == 0, f"fare harus 0 transfer via access, got {tr}"
+    assert cost == 3500, f"fare harus Rp3.500, got {cost}"
+    assert any(k == "access" for k, *_ in path), "fare harus punya langkah access di awal"
+    # Loop sah: tujuan di tengah trayek loop tetap dapat rute
+    loop = find_goals("Underpass Kuningan", "Petukangan D'MASIV", data, allowed={"BRT"})
+    assert any(loop.get(k) for k in ("fare", "simple", "dist")), "loop-legit harus tetap dapat rute"
+    if loop.get("fare"):
+        _assert_no_leg_revisit(stop_name, loop["fare"][2], "loop-fare")
+    # Normal pair tetap ada
+    for o, d in (
+        ("Pancoran Arah Barat", "Komplek Polri Ragunan"),
+        ("Harmoni", "Komplek Polri Ragunan"),
+        ("Pancoran Arah Barat", "Kota Kasablanka"),
+    ):
+        g = find_goals(o, d, data)
+        assert g["fare"] is not None, f"fare {o}→{d} hilang"
+        _assert_no_leg_revisit(stop_name, g["fare"][2], f"normal {o}")
 
 
 if __name__ == "__main__":
     test_mini_alternative()
     test_dest_exact_name()
     test_no_ghost_leg()
+    test_uturn_guard_and_fare_access()
     print("test-route-alt ok")

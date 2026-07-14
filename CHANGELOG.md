@@ -3,6 +3,25 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.14.0] - 2026-07-14
+
+Fix leg U-turn (bus muter loop) di tab Tarif + BRT-only; goal fare dapat access seed 400 m.
+
+### Fixed
+
+- **Leg U-turn di trayek loop** (mis. L13E Underpass Kuningan → muter Petukangan → balik Simpang Kuningan). Guard no-revisit di semua jalur ride-extend (`find`/`shortestGoal`/`recommendRoute`/`findAlternative` + paritas `route.py`): satu leg tidak boleh menyinggahi nama halte yang sama dua kali. Rute loop sah (turun sebelum nama berulang) tetap jalan.
+- **Tab 🚩 Tarif BRT-only Underpass Kuningan → Cawang** jadi waras: jalan akses ~300 m ke Simpang Kuningan → koridor 9 → Cawang (0 transfer, Rp3.500) — bukan L13E muter 15 halte.
+
+### Changed
+
+- **Goal `fare` access seed 400 m** (sama pola `findAlternative`): cost Rupiah 0, `walkM` ikut dominasi — seed jauh sia-sia kalah. `simple`/`dist` tetap origin-locked.
+- **web/app.js** `CACHE_NAME` → `jt-v19`; `APP_VERSION` → `1.14.0`.
+- **web/sw.js** default cache → `jt-v19`.
+
+### Notes
+
+- Paritas `route.py` == `router.js`. Test: `test-router.js` + `test-route-alt.py` (guard U-turn, fare access, loop sah, massa pair anti-regresi).
+
 ## [1.13.0] - 2026-07-13
 
 App-shell jadi network-first — update nyampe otomatis, tak perlu clear cache manual (fix riweh APK/TWA).
