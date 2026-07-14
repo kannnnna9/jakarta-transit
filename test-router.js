@@ -387,7 +387,7 @@
  const appJs = fs.readFileSync(path.join(__dirname, "web", "app.js"), "utf8");
  const indexHtml = fs.readFileSync(path.join(__dirname, "web", "index.html"), "utf8");
  const swJs = fs.readFileSync(path.join(__dirname, "web", "sw.js"), "utf8");
-   assert.ok(appJs.includes('APP_VERSION = "1.12.1"'), "app.js must define APP_VERSION 1.12.1");
+   assert.ok(appJs.includes('APP_VERSION = "1.13.0"'), "app.js must define APP_VERSION 1.13.0");
   for (const label of ["Tarif terendah", "🌟 Rekomendasi", "Jarak terpendek", "Alternatif"]) {
     assert.ok(appJs.includes(label), "app.js must render " + label);
   }
@@ -398,9 +398,10 @@
   assert.ok(!appJs.includes("Minim jalan-kaki"), "v1.9 removes Minim jalan-kaki label");
   assert.ok(indexHtml.includes('id="service-filter"'), "index.html must expose service filter");
   assert.ok(indexHtml.includes('id="app-version"'), "index.html must expose version badge");
-  assert.ok(appJs.includes("jt-v15"), "app shell cache must bump to jt-v15");
-  assert.ok(swJs.includes("jt-v16"), "service worker cache must bump to jt-v16");
-  console.log("v1.12 goals ok");
+  assert.ok(appJs.includes("jt-v18"), "app shell cache must bump to jt-v18");
+  assert.ok(swJs.includes("jt-v18"), "service worker cache must bump to jt-v18");
+  assert.ok(/fetch\(e\.request\)[\s\S]*catch\([\s\S]*caches\.match/.test(swJs), "v1.13 app-shell must be network-first (fetch then cache fallback)");
+  console.log("v1.13 goals ok");
 
   // --- 6. fareWarning: bedakan Premium vs Transfer keluar (data nyata) ---
   const real = JSON.parse(fs.readFileSync(path.join(__dirname, "web", "data.json"), "utf8"));

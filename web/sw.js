@@ -1,7 +1,8 @@
 "use strict";
-// App-shell = cache-first (offline). data.json = stale-while-revalidate
-// (update data nyampe otomatis saat online, tanpa rebuild APK). Lihat spec Bagian 14.
-const CACHE = new URL(self.location.href).searchParams.get("cache") || "jt-v17"; // bump HANYA kalau app-shell (html/js/css) berubah
+// App-shell = network-first (online selalu fresh, offline fallback cache).
+// data.json = stale-while-revalidate. Update app-shell (router/app/dll) nyampe
+// otomatis tiap online tanpa clear cache manual / regen APK. Lihat spec Bagian 14.
+const CACHE = new URL(self.location.href).searchParams.get("cache") || "jt-v18";
 const SHELL = ["./", "./index.html", "./router.js", "./suggest.js", "./legs.js", "./livenav.js", "./cost.js", "./app.js", "./manifest.json"];
 
 self.addEventListener("install", (e) => {
@@ -33,6 +34,17 @@ self.addEventListener("fetch", (e) => {
     );
     return;
   }
-  // app-shell: cache-first
-  e.respondWith(caches.match(e.request).then((c) => c || fetch(e.request)));
+  // app-shell: network-first (online fresh, offline fallback cache).
+  // Segarkan cache tiap sukses supaya offline juga dapat versi terbaru.
+  e.respondWith(
+    fetch(e.request)
+      .then((res) => {
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((cache) => cache.put(e.request, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(e.request))
+  );
 });

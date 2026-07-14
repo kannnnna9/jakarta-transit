@@ -3,6 +3,21 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.13.0] - 2026-07-13
+
+App-shell jadi network-first — update nyampe otomatis, tak perlu clear cache manual (fix riweh APK/TWA).
+
+### Changed
+
+- **App-shell network-first** (`web/sw.js`). Sebelumnya `router.js`/`app.js`/dll di-serve **cache-first** — hanya ke-refresh saat Service Worker baru aktif, dan di APK (TWA bungkus Chrome) hand-over SW sering telat 1–2 launch, jadi pengguna kepaksa clear data/cache Chrome manual tiap rilis. Kini `fetch()` dulu (online = selalu versi terbaru + cache disegarkan), **offline fallback ke cache** (PWA offline tetap jalan). `data.json` tetap stale-while-revalidate.
+- **web/app.js** `CACHE_NAME` di-bump ke `jt-v18`; `APP_VERSION` menjadi `1.13.0`.
+- **web/sw.js** default cache app-shell di-bump ke `jt-v18`.
+
+### Notes
+
+- **Rilis terakhir yang butuh clear manual.** Sesudah `jt-v18` aktif sekali, rilis app-shell berikutnya nyampe otomatis saat online tanpa clear cache / regen APK.
+- Test `test-router.js` menegaskan network-first + cache `jt-v18` di app.js & sw.js.
+
 ## [1.12.2] - 2026-07-13
 
 Bust cache app-shell paksa untuk semua pengguna (rute janggal dari router basi).
