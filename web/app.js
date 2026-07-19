@@ -7,6 +7,13 @@ const CACHE_NAME = "jt-v19";
   const { suggest } = window.Suggest;
   const { pathToLegs } = window.Legs;
   const { snap } = window.LiveNav;
+  const Session = window.Session;
+  // localStorage bisa tak tersedia (mode privat ketat) -> stub no-op, app jalan normal.
+  const store = (function () {
+    try { localStorage.setItem("jt-probe", "1"); localStorage.removeItem("jt-probe"); return localStorage; }
+    catch (e) { return { getItem: function () { return null; }, setItem: function () {}, removeItem: function () {} }; }
+  })();
+  let sess = null; // {from, to, tab, nav} -- cermin sesi tersimpan
   const { routeCost, fmtFare } = window.Cost;
   const $ = (id) => document.getElementById(id);
   let data = null, index = null, validNames = null, serviceStops = null;
@@ -145,6 +152,7 @@ const CACHE_NAME = "jt-v19";
      renderRoute(routeOptions[i].route, ol);
      setSummary(routeOptions[i].route);
      updateFareWarning(routeOptions[i].route);
+     if (sess) { sess.tab = routeOptions[i].key; Session.saveSession(store, sess, Date.now()); }
    }
 
    function updateFareWarning(selectedRoute) {
@@ -171,11 +179,11 @@ const CACHE_NAME = "jt-v19";
 
    function goalOptions(goals) {
      const ops = [
-       { label: "💰 Tarif terendah", route: goals.fare },
-       { label: "🌟 Rekomendasi", route: goals.simple },
-       { label: "📏 Jarak terpendek", route: goals.dist },
+       { key: "fare", label: "💰 Tarif terendah", route: goals.fare },
+       { key: "simple", label: "🌟 Rekomendasi", route: goals.simple },
+       { key: "dist", label: "📏 Jarak terpendek", route: goals.dist },
      ].filter((op) => op.route);
-     if (goals.alternative) ops.push({ label: "🔀 Alternatif", route: goals.alternative });
+     if (goals.alternative) ops.push({ key: "alternative", label: "🔀 Alternatif", route: goals.alternative });
      return ops;
    }
 
@@ -315,6 +323,8 @@ const CACHE_NAME = "jt-v19";
     nav.watchId = null; nav.cur = -1;
     $("nav").textContent = "🧭 Mulai navigasi";
     $("navstat").textContent = "";
+    if (sess) sess.nav = null;
+    Session.clearNav(store);
   }
 
   function onFix(pos) {
@@ -326,6 +336,7 @@ const CACHE_NAME = "jt-v19";
     }
     if (nav.cur >= 0) nav.stops[nav.cur].el.classList.remove("here");
     nav.cur = j;
+    if (sess) { sess.nav = { cur: j, lastFixAt: Date.now() }; Session.saveSession(store, sess, Date.now()); }
     const { idx, el } = nav.stops[j];
     el.classList.add("here");
     const det = el.closest("details");
@@ -340,40 +351,50 @@ const CACHE_NAME = "jt-v19";
     }
   }
 
-  $("nav").addEventListener("click", () => {
-    if (nav.watchId != null) { stopNav(); return; }
+  function startNav(msg) {
     $("nav").textContent = "⏹ Berhenti navigasi";
-    $("navstat").textContent = "Mencari sinyal GPS…";
+    $("navstat").textContent = msg || "Mencari sinyal GPS…";
+    if (sess) { sess.nav = { cur: nav.cur, lastFixAt: Date.now() }; Session.saveSession(store, sess, Date.now()); }
     nav.watchId = navigator.geolocation.watchPosition(onFix, (err) => {
       stopNav();
       $("navstat").textContent = err.code === 1
         ? "Izin lokasi ditolak — aktifkan untuk navigasi live."
         : "Gagal ambil lokasi (sinyal GPS lemah?).";
     }, { enableHighAccuracy: true, maximumAge: 5000 });
+  }
+
+  $("nav").addEventListener("click", () => {
+    if (nav.watchId != null) { stopNav(); return; }
+    startNav();
   });
 
-  $("go").addEventListener("click", () => {
+  function doSearch() {
     $("err").textContent = ""; $("summary").textContent = ""; $("result").innerHTML = "";
     const from = $("from").value.trim(), to = $("to").value.trim();
-    if (!validNames) { $("err").textContent = "Data belum siap, tunggu sebentar."; return; }
-    if (!validNames.has(from)) { $("err").textContent = "Halte asal tidak ditemukan — pilih dari daftar."; return; }
-    if (!validNames.has(to)) { $("err").textContent = "Halte tujuan tidak ditemukan — pilih dari daftar."; return; }
+    if (!validNames) { $("err").textContent = "Data belum siap, tunggu sebentar."; return false; }
+    if (!validNames.has(from)) { $("err").textContent = "Halte asal tidak ditemukan — pilih dari daftar."; return false; }
+    if (!validNames.has(to)) { $("err").textContent = "Halte tujuan tidak ditemukan — pilih dari daftar."; return false; }
     if (!Array.from(index.nameStops.get(from) || []).some((id) => serviceStops.has(id))) {
-      $("err").textContent = `Halte asal "${from}" tidak dilayani filter aktif — coba longgarkan filter.`; return;
+      $("err").textContent = `Halte asal "${from}" tidak dilayani filter aktif — coba longgarkan filter.`; return false;
     }
     if (!Array.from(index.nameStops.get(to) || []).some((id) => serviceStops.has(id))) {
-      $("err").textContent = `Halte tujuan "${to}" tidak dilayani filter aktif — coba longgarkan filter.`; return;
+      $("err").textContent = `Halte tujuan "${to}" tidak dilayani filter aktif — coba longgarkan filter.`; return false;
     }
-    if (from === to) { $("err").textContent = "Asal dan tujuan sama."; return; }
+    if (from === to) { $("err").textContent = "Asal dan tujuan sama."; return false; }
     try {
       const res = findGoalRoutes(data, from, to, index, activeRtypes());
       if (!res.fare && !res.simple && !res.dist) {
         $("summary").textContent = "Tidak ada rute dengan filter aktif — coba longgarkan filter.";
-        return;
+        return false;
       }
       render(res);
-    } catch (e) { $("err").textContent = e.message; }
-  });
+      if (!routeOptions.length) return false;
+      sess = { from, to, tab: routeOptions[selectedRouteIdx].key, nav: null };
+      Session.saveSession(store, sess, Date.now());
+      return true;
+    } catch (e) { $("err").textContent = e.message; return false; }
+  }
+  $("go").addEventListener("click", doSearch);
 
   // daftar service worker (offline)
   if ("serviceWorker" in navigator)
