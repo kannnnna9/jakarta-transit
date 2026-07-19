@@ -3,6 +3,13 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.15.1] - 2026-07-19
+
+### Ditambahkan
+
+- Link "Laporkan ke pengembang" (Telegram & Instagram) di bawah hasil rute,
+  muncul hanya saat ada rute yang ditampilkan.
+
 ## [1.15.0] - 2026-07-19
 
 ### Added

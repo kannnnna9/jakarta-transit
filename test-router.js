@@ -413,7 +413,7 @@
  const appJs = fs.readFileSync(path.join(__dirname, "web", "app.js"), "utf8");
  const indexHtml = fs.readFileSync(path.join(__dirname, "web", "index.html"), "utf8");
  const swJs = fs.readFileSync(path.join(__dirname, "web", "sw.js"), "utf8");
-     assert.ok(appJs.includes('APP_VERSION = "1.15.0"'), "app.js must define APP_VERSION 1.15.0");
+     assert.ok(appJs.includes('APP_VERSION = "1.15.1"'), "app.js must define APP_VERSION 1.15.1");
     for (const label of ["Tarif terendah", "🌟 Rekomendasi", "Jarak terpendek", "Alternatif"]) {
       assert.ok(appJs.includes(label), "app.js must render " + label);
     }
@@ -424,8 +424,8 @@
     assert.ok(!appJs.includes("Minim jalan-kaki"), "v1.9 removes Minim jalan-kaki label");
     assert.ok(indexHtml.includes('id="service-filter"'), "index.html must expose service filter");
     assert.ok(indexHtml.includes('id="app-version"'), "index.html must expose version badge");
-    assert.ok(appJs.includes("jt-v20"), "app shell cache must bump to jt-v20");
-    assert.ok(swJs.includes("jt-v20"), "service worker cache must bump to jt-v20");
+    assert.ok(appJs.includes("jt-v21"), "app shell cache must bump to jt-v21");
+    assert.ok(swJs.includes("jt-v21"), "service worker cache must bump to jt-v21");
     assert.ok(swJs.includes('"./session.js"'), "sw.js SHELL must cache session.js");
     assert.ok(indexHtml.includes('<script src="session.js"></script>'), "index.html must load session.js");
     assert.ok(/fetch\(e\.request\)[\s\S]*catch\([\s\S]*caches\.match/.test(swJs), "v1.13 app-shell must be network-first (fetch then cache fallback)");

@@ -56,6 +56,11 @@
      .route-tabs button { min-width:0; font-size:.85rem; padding:.45rem .35rem; margin-top:0;
                           background:var(--card); color:var(--muted); border:1px solid var(--line); }
      .route-tabs button.active { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:700; }
+     .report-box { margin-top:1rem; padding:.6rem .75rem; border:1px solid var(--line);
+                   border-radius:8px; background:var(--card); font-size:.82rem;
+                   color:var(--muted); }
+     .report-links { display:flex; gap:.75rem; margin-top:.4rem; }
+     .report-links a { color:var(--accent); font-weight:600; text-decoration:none; }
    </style>
 </head>
 <body>
@@ -75,6 +80,13 @@
   <button id="nav" class="ghost" type="button" hidden>🧭 Mulai navigasi</button>
   <small class="hint" id="navstat"></small>
   <ol id="result"></ol>
+  <div id="report-box" class="report-box" hidden>
+    <span>Rute terlihat janggal? Laporkan ke pengembang</span>
+    <div class="report-links">
+      <a href="https://t.me/kancutdragon" target="_blank" rel="noopener noreferrer">Telegram</a>
+      <a href="https://instagram.com/anciet.pey" target="_blank" rel="noopener noreferrer">Instagram</a>
+    </div>
+  </div>
 
   <script src="router.js"></script>
   <script src="suggest.js"></script>

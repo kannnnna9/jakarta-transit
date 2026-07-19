@@ -1,8 +1,8 @@
 "use strict";
 // DOM/render. Router murni ada di Router (router.js). File ini TIDAK berisi logika rute.
 (function () {
-const APP_VERSION = "1.15.0";
-const CACHE_NAME = "jt-v20";
+const APP_VERSION = "1.15.1";
+const CACHE_NAME = "jt-v21";
   const { buildIndex, findGoalRoutes } = window.Router;
   const { suggest } = window.Suggest;
   const { pathToLegs } = window.Legs;
@@ -321,18 +321,19 @@ const CACHE_NAME = "jt-v20";
      stopNav();
      nav.stops = []; $("nav").hidden = true;
      const ol = $("result"); ol.innerHTML = "";
-     if (!res) { $("summary").textContent = "Rute tidak ditemukan."; return; }
+     if (!res) { $("summary").textContent = "Rute tidak ditemukan."; $("report-box").hidden = true; return; }
      
      routeOptions = goalOptions(res);
      lastGoals = res;
      selectedRouteIdx = 0;
 
-     if (!routeOptions.length) { $("summary").textContent = "Rute tidak ditemukan."; return; }
+     if (!routeOptions.length) { $("summary").textContent = "Rute tidak ditemukan."; $("report-box").hidden = true; return; }
      if (routeOptions.length > 1) ol.appendChild(routeSelector(routeOptions, selectedRouteIdx));
      const selected = routeOptions[selectedRouteIdx].route;
      setSummary(selected);
      renderRoute(selected, ol);
      updateFareWarning(selected);
+     $("report-box").hidden = false;
    }
 
   // --- Navigasi live: watchPosition -> snap maju-only -> highlight halte aktif ---
@@ -387,7 +388,7 @@ const CACHE_NAME = "jt-v20";
   });
 
   function doSearch() {
-    $("err").textContent = ""; $("summary").textContent = ""; $("result").innerHTML = "";
+    $("err").textContent = ""; $("summary").textContent = ""; $("result").innerHTML = ""; $("report-box").hidden = true;
     const from = $("from").value.trim(), to = $("to").value.trim();
     if (!validNames) { $("err").textContent = "Data belum siap, tunggu sebentar."; return false; }
     if (!validNames.has(from)) { $("err").textContent = "Halte asal tidak ditemukan — pilih dari daftar."; return false; }
