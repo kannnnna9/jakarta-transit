@@ -83,6 +83,23 @@ const CACHE_NAME = "jt-v19";
     dl.appendChild(frag);
   }
 
+  // Restore sesi tersimpan: isi input -> cari ulang (router deterministik) -> tab -> auto-nav.
+  // Dipanggil SEKALI saat load. Sesi tak valid/halte hilang -> loadSession balik null, app normal.
+  function restoreSession() {
+    const s = Session.loadSession(store, Date.now(), validNames);
+    if (!s) return;
+    $("from").value = s.from;
+    $("to").value = s.to;
+    if (!doSearch()) return; // gagal lembut (mis. tersaring filter) -- pesan filter yang ada sudah tampil
+    const ti = routeOptions.findIndex((op) => op.key === s.tab);
+    if (ti > 0) switchRoute(ti); // ti 0 = sudah default; -1 (tab hilang) = fallback default
+    if (s.resumeNav && nav.watchId == null && navigator.geolocation) {
+      nav.cur = s.cur; // sebelum startNav: snap() maju-only lanjut dari sini, tak mundur
+      if (nav.cur >= 0 && nav.stops[nav.cur]) nav.stops[nav.cur].el.classList.add("here");
+      startNav("Melanjutkan navigasi…");
+    }
+  }
+
   fetch("data.json")
     .then((r) => r.json())
     .then((d) => {
@@ -91,6 +108,7 @@ const CACHE_NAME = "jt-v19";
       validNames = new Set(d.stops);
       buildFilters();
       fillDatalist();
+      restoreSession();
     })
     .catch(() => { $("err").textContent = "Gagal memuat data halte."; });
 
