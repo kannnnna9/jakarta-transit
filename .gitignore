@@ -1,3 +1,6 @@
 .env
 data/
 __pycache__/
+docs/
+AGENTS.md
+OPEN-QUESTIONS.md
