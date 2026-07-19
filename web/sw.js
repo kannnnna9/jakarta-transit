@@ -2,8 +2,8 @@
 // App-shell = network-first (online selalu fresh, offline fallback cache).
 // data.json = stale-while-revalidate. Update app-shell (router/app/dll) nyampe
 // otomatis tiap online tanpa clear cache manual / regen APK. Lihat spec Bagian 14.
-const CACHE = new URL(self.location.href).searchParams.get("cache") || "jt-v19";
-const SHELL = ["./", "./index.html", "./router.js", "./suggest.js", "./legs.js", "./livenav.js", "./cost.js", "./app.js", "./manifest.json"];
+const CACHE = new URL(self.location.href).searchParams.get("cache") || "jt-v20";
+const SHELL = ["./", "./index.html", "./router.js", "./suggest.js", "./legs.js", "./livenav.js", "./session.js", "./cost.js", "./app.js", "./manifest.json"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

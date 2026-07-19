@@ -3,6 +3,17 @@
 Semua perubahan penting dicatat di sini. Format: [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
 versi mengikuti [SemVer](https://semver.org/lang/id/).
 
+## [1.15.0] - 2026-07-19
+
+### Added
+
+- **Sesi lengket: rute pencarian terakhir otomatis dipulihkan saat app dibuka/refresh** (asal, tujuan, tab pilihan). Navigasi yang sedang berjalan ikut berlanjut otomatis — progres halte tidak mundur — selama < 2 jam sejak posisi GPS terakhir.
+- Modul murni baru `web/session.js` + `test-session.js` (storage di-inject, dites Node).
+
+### Changed
+
+- Cache app-shell → `jt-v20` (`session.js` masuk SHELL service worker).
+
 ## [1.14.0] - 2026-07-14
 
 Fix leg U-turn (bus muter loop) di tab Tarif + BRT-only; goal fare dapat access seed 400 m.
@@ -279,6 +290,8 @@ Multi-rute Pareto: 2–3 rute alternatif (minim transfer / minim halte / seimban
 - SW cache di-bump `jt-v7` (app-shell: route selector, tab styles).
 - Semua path relatif — tetap aman di subpath `/jakarta-transit/`.
 
+[1.15.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.15.0
+[1.14.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.14.0
 [1.11.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.11.0
 [1.10.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.10.0
 [1.9.0]: https://github.com/kannnnna9/jakarta-transit/releases/tag/v1.9.0
