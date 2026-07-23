@@ -59,3 +59,7 @@ node test-router.js
 Semua script **self-locate** (path-independent) — repo jalan dari folder mana pun / hasil `git clone`, tanpa tool eksternal. Path di web semua **relatif** (aman di subpath Pages). Termux gak punya PIL/ImageMagick → ikon dibuat pure-stdlib.
 
 Konteks lengkap buat lanjutin kerja (termasuk lintas tool AI): baca [`AGENTS.md`](AGENTS.md).
+
+---
+
+Proyek ini didukung kredit LLM dari **vsLLM**. Kalau kamu mau daftar, boleh lewat link referralku: https://vsllm.com/i/5xdk
